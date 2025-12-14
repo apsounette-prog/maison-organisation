@@ -143,34 +143,34 @@ function addAchievement(txt){
 }
 
 function confetti(){
-  <script>
-function confetti(){
   for(let i=0;i<50;i++){
     const c=document.createElement("div");
     const size = Math.random()*6 + 6;
 
-    c.style.position="fixed";
-    c.style.left=Math.random()*100+"vw";
-    c.style.top="-20px";
-    c.style.width=size+"px";
-    c.style.height=size+"px";
-    c.style.background=["#ec4899","#7c3aed","#3b82f6","#f43f5e"][Math.floor(Math.random()*4)];
-    c.style.borderRadius=Math.random()>0.5?"50%":"4px";
-    c.style.opacity=Math.random()*0.5+0.5;
-    c.style.zIndex=9999;
+    c.style.position = "fixed";
+    c.style.left = Math.random()*100 + "vw";
+    c.style.top = "-20px";
+    c.style.width = size + "px";
+    c.style.height = size + "px";
+    c.style.background = ["#ec4899","#7c3aed","#3b82f6","#f43f5e"]
+      [Math.floor(Math.random()*4)];
+    c.style.borderRadius = Math.random() > 0.5 ? "50%" : "4px";
+    c.style.opacity = Math.random()*0.5 + 0.5;
+    c.style.zIndex = 9999;
     document.body.appendChild(c);
 
     let y = -20;
-    let x = Math.random()*2 - 1;
+    let x = 0;
     let rotation = Math.random()*360;
     const speed = Math.random()*4 + 3;
 
     const fall = setInterval(()=>{
       y += speed;
-      x += Math.random()*0.8 - 0.4;
-      rotation += Math.random()*10;
+      x += Math.random()*2 - 1;
+      rotation += Math.random()*12;
 
-      c.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg)`;
+      c.style.transform =
+        `translate(${x}px, ${y}px) rotate(${rotation}deg)`;
 
       if(y > window.innerHeight + 40){
         clearInterval(fall);
