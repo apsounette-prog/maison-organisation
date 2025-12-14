@@ -4,20 +4,134 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Maison & Organisation</title>
+
 <style>
-body{font-family:system-ui;background:#f9f5ff;padding:20px}
-.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px}
-button{background:#7c3aed;color:#fff;border:none;padding:10px;border-radius:12px}
+body {
+  font-family: system-ui;
+  background: linear-gradient(135deg,#fbcfe8,#ddd6fe,#bfdbfe);
+  margin: 0;
+  padding: 16px;
+}
+h1 { text-align:center; }
+nav {
+  display:flex;
+  justify-content:space-around;
+  margin-bottom:16px;
+}
+nav button {
+  border:none;
+  background:#7c3aed;
+  color:white;
+  padding:8px 12px;
+  border-radius:12px;
+}
+.section {
+  display:none;
+}
+.section.active {
+  display:block;
+}
+.card {
+  background:white;
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:12px;
+  box-shadow:0 5px 15px rgba(0,0,0,.1);
+}
+button.action {
+  background:#ec4899;
+  color:white;
+  border:none;
+  padding:10px;
+  border-radius:12px;
+  margin-top:8px;
+}
+input[type="text"] {
+  width:100%;
+  padding:8px;
+  margin-top:6px;
+}
 </style>
 </head>
+
 <body>
+
 <h1>🏠 Maison & Organisation</h1>
-<div class="card">
-<h2>✔️ Salle de bain</h2>
-<label><input type="checkbox"> Lavabo</label><br>
-<label><input type="checkbox"> Miroir</label><br>
-<label><input type="checkbox"> WC</label>
+
+<nav>
+  <button onclick="show('today')">Aujourd’hui</button>
+  <button onclick="show('cleaning')">Ménage</button>
+  <button onclick="show('agenda')">Agenda</button>
+  <button onclick="show('exploits')">Exploits</button>
+</nav>
+
+<!-- AUJOURD'HUI -->
+<div id="today" class="section active">
+  <div class="card">
+    <h2>🌤️ Aujourd’hui</h2>
+    <p>Fais ce que tu peux. C’est déjà bien 💜</p>
+  </div>
 </div>
-<button onclick="alert('🎉 Bravo !')">Exploit terminé</button>
+
+<!-- MENAGE -->
+<div id="cleaning" class="section">
+  <div class="card">
+    <h2>🛁 Salle de bain</h2>
+    <label><input type="checkbox" class="task"> Nettoyer lavabo</label><br>
+    <label><input type="checkbox" class="task"> Nettoyer miroir</label><br>
+    <label><input type="checkbox" class="task"> Désinfecter WC</label><br>
+    <label><input type="checkbox" class="task"> Sol</label>
+    <button class="action" onclick="checkExploit()">Exploit terminé</button>
+  </div>
+</div>
+
+<!-- AGENDA -->
+<div id="agenda" class="section">
+  <div class="card">
+    <h2>📅 Ajouter un événement</h2>
+    <input id="eventInput" type="text" placeholder="Ex : RDV médecin mardi 15h">
+    <button class="action" onclick="addEvent()">Ajouter</button>
+    <ul id="events"></ul>
+  </div>
+</div>
+
+<!-- EXPLOITS -->
+<div id="exploits" class="section">
+  <div class="card">
+    <h2>🏆 Exploits</h2>
+    <p id="exploitCount">0 exploit(s) validé(s)</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<script>
+let exploits = Number(localStorage.getItem("exploits") || 0);
+document.getElementById("exploitCount").innerText =
+  exploits + " exploit(s) validé(s)";
+
+function show(id){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+function checkExploit(){
+  confetti({particleCount:150,spread:90});
+  exploits++;
+  localStorage.setItem("exploits",exploits);
+  document.getElementById("exploitCount").innerText =
+    exploits + " exploit(s) validé(s)";
+}
+
+function addEvent(){
+  const input = document.getElementById("eventInput");
+  if(!input.value) return;
+  const li = document.createElement("li");
+  li.textContent = input.value;
+  document.getElementById("events").appendChild(li);
+  input.value="";
+}
+</script>
+
 </body>
 </html>
