@@ -141,6 +141,7 @@ button{
 </div>
 
 <script>
+<script>
 function showSection(id){
   document.querySelectorAll(".section").forEach(s=>{
     s.classList.remove("active");
@@ -151,6 +152,47 @@ function showSection(id){
     window.scrollTo(0,0);
   }
 }
+
+/* XP */
+let xp = 0;
+function addXP(amount){
+  xp += amount;
+  document.getElementById("xp").innerText = xp;
+}
+
+/* CONFETTIS */
+function confetti(){
+  for(let i=0;i<35;i++){
+    const c=document.createElement("div");
+    c.style.position="fixed";
+    c.style.left=Math.random()*100+"vw";
+    c.style.top="-10px";
+    c.style.width="8px";
+    c.style.height="8px";
+    c.style.background=["#ec4899","#7c3aed","#3b82f6","#f43f5e"][Math.floor(Math.random()*4)];
+    c.style.borderRadius="50%";
+    c.style.zIndex=9999;
+    document.body.appendChild(c);
+
+    let y=0;
+    const fall=setInterval(()=>{
+      y+=6;
+      c.style.top=y+"px";
+      if(y>window.innerHeight){
+        clearInterval(fall);
+        c.remove();
+      }
+    },16);
+  }
+}
+
+/* EXPLOIT */
+function validateExploit(){
+  addXP(50);
+  confetti();
+  alert("🎉 Exploit validé ! +50 XP");
+}
+</script>
 </script>
   <!-- GAMIFICATION UI -->
 <div style="
