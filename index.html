@@ -8,107 +8,107 @@
 <style>
 body{
   margin:0;
-  font-family:system-ui,-apple-system;
-  background:linear-gradient(135deg,#fbcfe8,#ddd6fe,#bfdbfe);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background:#f5f3ff;
 }
-header{
-  padding:16px;
-  font-size:22px;
-  font-weight:800;
-}
+
 nav{
-  <div class="navbtn" onclick="show('agenda')">Agenda</div>
   display:flex;
-  gap:10px;
+  justify-content:space-around;
   padding:10px;
-  flex-wrap:wrap;
-}
-.navbtn{
   background:#7c3aed;
   color:white;
-  padding:10px 14px;
-  border-radius:16px;
-  font-weight:700;
 }
-.section{display:none;padding:16px;}
-.section.active{display:block;}
+
+.navbtn{
+  cursor:pointer;
+  font-weight:600;
+}
+
+.section{
+  display:none;
+  padding:16px;
+}
+
+.section.active{
+  display:block;
+}
+
 .card{
   background:white;
-  border-radius:18px;
-  padding:14px;
-  margin-bottom:14px;
-  box-shadow:0 10px 25px rgba(0,0,0,.12);
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 4px 10px rgba(0,0,0,.08);
 }
-label{display:flex;gap:8px;margin:6px 0;}
+
 button{
   background:#ec4899;
   color:white;
   border:none;
-  padding:10px;
-  border-radius:14px;
-  font-weight:700;
+  border-radius:12px;
+  padding:10px 14px;
+  font-size:16px;
+  cursor:pointer;
 }
-#xpbox{
-  position:fixed;
-  bottom:16px;
-  right:16px;
-  background:#7c3aed;
-  color:white;
-  padding:10px 16px;
-  border-radius:20px;
-  font-weight:800;
-  z-index:9999;
+
+input{
+  width:100%;
+  padding:10px;
+  margin-bottom:10px;
+  border-radius:10px;
+  border:1px solid #ddd;
+}
+
+ul{
+  padding-left:0;
+  list-style:none;
+}
+
+li{
+  margin-bottom:8px;
 }
 </style>
 </head>
 
 <body>
 
-<header>🏠 Maison & Organisation</header>
-
 <nav>
-  <div class="navbtn" onclick="show('today')">Aujourd’hui</div>
-  <div class="navbtn" onclick="show('clean')">Ménage</div>
-  <div class="navbtn" onclick="show('stats')">Exploits</div>
+  <div class="navbtn" onclick="show('home')">Accueil</div>
+  <div class="navbtn" onclick="show('tasks')">Tâches</div>
+  <div class="navbtn" onclick="show('agenda')">Agenda</div>
+  <div class="navbtn" onclick="show('stats')">Stats</div>
 </nav>
 
-<div id="today" class="section active">
+<!-- ACCUEIL -->
+<div id="home" class="section active">
   <div class="card">
-    <h2>✨ Objectif du jour</h2>
-    <p>Fais ce que tu peux. C’est déjà énorme 💜</p>
+    <h2>🏠 Maison & Organisation</h2>
+    <p>Ton app perso d’organisation + motivation ✨</p>
   </div>
 </div>
 
-<div id="clean" class="section">
+<!-- TACHES -->
+<div id="tasks" class="section">
   <div class="card">
-    <h2>🚿 Salle de bain</h2>
-    <label><input type="checkbox" onchange="check()"> Lavabo</label>
-    <label><input type="checkbox" onchange="check()"> Miroir</label>
-    <label><input type="checkbox" onchange="check()"> WC</label>
-    <label><input type="checkbox" onchange="check()"> Douche</label>
-    <button onclick="validate()">Exploit terminé</button>
-  </div>
-
-  <div class="card">
-    <h2>🍽️ Cuisine</h2>
-    <label><input type="checkbox" onchange="check()"> Évier</label>
-    <label><input type="checkbox" onchange="check()"> Plan de travail</label>
-    <label><input type="checkbox" onchange="check()"> Plaques</label>
+    <h2>🧹 Nettoyer la salle de bain</h2>
+    <ul>
+      <li><input type="checkbox" onchange="taskDone()"> Lavabo</li>
+      <li><input type="checkbox" onchange="taskDone()"> Miroir</li>
+      <li><input type="checkbox" onchange="taskDone()"> Douche</li>
+      <li><input type="checkbox" onchange="taskDone()"> WC</li>
+      <li><input type="checkbox" onchange="taskDone()"> Sol</li>
+    </ul>
   </div>
 </div>
+
+<!-- AGENDA -->
 <div id="agenda" class="section">
   <div class="card">
     <h2>📅 Ajouter un rendez-vous</h2>
-
-    <input id="rdvTitle" placeholder="Titre du rendez-vous"
-      style="width:100%;padding:10px;margin-bottom:8px;border-radius:10px;border:1px solid #ddd">
-
-    <input id="rdvDate" type="date"
-      style="width:100%;padding:10px;margin-bottom:8px;border-radius:10px;border:1px solid #ddd">
-
-    <input id="rdvTime" type="time"
-      style="width:100%;padding:10px;margin-bottom:8px;border-radius:10px;border:1px solid #ddd">
-
+    <input id="rdvTitle" placeholder="Titre">
+    <input id="rdvDate" type="date">
+    <input id="rdvTime" type="time">
     <button onclick="addRdv()">Ajouter</button>
   </div>
 
@@ -117,132 +117,86 @@ button{
     <ul id="rdvList"></ul>
   </div>
 </div>
+
+<!-- STATS -->
 <div id="stats" class="section">
   <div class="card">
-    <h2>🏆 Exploits débloqués</h2>
-    <ul id="achievements">
-      <li>Aucun pour l’instant</li>
-    </ul>
+    <h2>🏆 Progression</h2>
+    <p id="xp">XP : 0</p>
   </div>
 </div>
 
-<div id="xpbox">⭐ XP : <span id="xp">0</span></div>
-
 <script>
-let xp = Number(localStorage.getItem("xp")) || 0;
-document.getElementById("xp").innerText = xp;
-
+/* NAVIGATION */
 function show(id){
-  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".section").forEach(s=>{
+    s.classList.remove("active");
+  });
   document.getElementById(id).classList.add("active");
-  window.scrollTo(0,0);
 }
 
-function check(){
-  xp += 5;
-  saveXP();
-}
+/* XP + CONFETTIS */
+let xp = Number(localStorage.getItem("xp") || 0);
+document.getElementById("xp").innerText = "XP : " + xp;
 
-function validate(){
-  xp += 50;
-  saveXP();
-  confetti();
-  addAchievement("Salle de bain validée");
-}
-
-function saveXP(){
-  document.getElementById("xp").innerText = xp;
+function taskDone(){
+  xp += 10;
   localStorage.setItem("xp",xp);
+  document.getElementById("xp").innerText = "XP : " + xp;
+  confetti();
 }
 
-function addAchievement(txt){
-  const ul=document.getElementById("achievements");
-  if(ul.children[0]?.innerText==="Aucun pour l’instant") ul.innerHTML="";
-  const li=document.createElement("li");
-  li.textContent="🎉 "+txt;
-  ul.appendChild(li);
-}
-
+/* CONFETTIS */
 function confetti(){
-  for(let i=0;i<50;i++){
+  for(let i=0;i<40;i++){
     const c=document.createElement("div");
-    const size = Math.random()*6 + 6;
+    const size=Math.random()*6+6;
 
-    c.style.position = "fixed";
-    c.style.left = Math.random()*100 + "vw";
-    c.style.top = "-20px";
-    c.style.width = size + "px";
-    c.style.height = size + "px";
-    c.style.background = ["#ec4899","#7c3aed","#3b82f6","#f43f5e"]
-      [Math.floor(Math.random()*4)];
-    c.style.borderRadius = Math.random() > 0.5 ? "50%" : "4px";
-    c.style.opacity = Math.random()*0.5 + 0.5;
-    c.style.zIndex = 9999;
+    c.style.position="fixed";
+    c.style.left=Math.random()*100+"vw";
+    c.style.top="-20px";
+    c.style.width=size+"px";
+    c.style.height=size+"px";
+    c.style.background=["#ec4899","#7c3aed","#3b82f6","#f43f5e"][Math.floor(Math.random()*4)];
+    c.style.borderRadius=Math.random()>0.5?"50%":"4px";
+    c.style.zIndex=9999;
     document.body.appendChild(c);
 
-    let y = -20;
-    let x = 0;
-    let rotation = Math.random()*360;
-    const speed = Math.random()*4 + 3;
-
-    const fall = setInterval(()=>{
-      y += speed;
-      x += Math.random()*2 - 1;
-      rotation += Math.random()*12;
-
-      c.style.transform =
-        `translate(${x}px, ${y}px) rotate(${rotation}deg)`;
-
-      if(y > window.innerHeight + 40){
-        clearInterval(fall);
-        c.remove();
-      }
+    let y=-20,x=0,r=Math.random()*360,s=Math.random()*4+3;
+    const fall=setInterval(()=>{
+      y+=s; x+=Math.random()*2-1; r+=10;
+      c.style.transform=`translate(${x}px,${y}px) rotate(${r}deg)`;
+      if(y>window.innerHeight){clearInterval(fall);c.remove();}
     },16);
   }
 }
-</script>
-  let rdvs = JSON.parse(localStorage.getItem("rdvs") || "[]");
+
+/* AGENDA */
+let rdvs = JSON.parse(localStorage.getItem("rdvs") || "[]");
 
 function addRdv(){
-  const title = document.getElementById("rdvTitle").value.trim();
-  const date = document.getElementById("rdvDate").value;
-  const time = document.getElementById("rdvTime").value;
-
-  if(!title || !date){
-    alert("Titre et date obligatoires");
-    return;
-  }
-
-  rdvs.push({title,date,time});
+  const t=rdvTitle.value.trim();
+  const d=rdvDate.value;
+  const h=rdvTime.value;
+  if(!t||!d){alert("Titre et date obligatoires");return;}
+  rdvs.push({t,d,h});
   localStorage.setItem("rdvs",JSON.stringify(rdvs));
-
-  document.getElementById("rdvTitle").value="";
-  document.getElementById("rdvDate").value="";
-  document.getElementById("rdvTime").value="";
-
+  rdvTitle.value="";rdvDate.value="";rdvTime.value="";
   renderRdvs();
 }
 
 function renderRdvs(){
-  const ul=document.getElementById("rdvList");
-  ul.innerHTML="";
-
-  rdvs
-    .sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time))
-    .forEach((r,i)=>{
-      const li=document.createElement("li");
-      li.style.marginBottom="8px";
-      li.innerHTML = `
-        📌 <b>${r.title}</b><br>
-        ${r.date} ${r.time || ""}
-        <button style="margin-left:8px;background:#ef4444"
-          onclick="deleteRdv(${i})">✖</button>
-      `;
-      ul.appendChild(li);
-    });
+  rdvList.innerHTML="";
+  rdvs.sort((a,b)=>(a.d+a.h).localeCompare(b.d+b.h));
+  rdvs.forEach((r,i)=>{
+    const li=document.createElement("li");
+    li.innerHTML=`📌 <b>${r.t}</b> — ${r.d} ${r.h||""}
+      <button onclick="delRdv(${i})">✖</button>`;
+    rdvList.appendChild(li);
+  });
 }
 
-function deleteRdv(i){
+function delRdv(i){
   rdvs.splice(i,1);
   localStorage.setItem("rdvs",JSON.stringify(rdvs));
   renderRdvs();
