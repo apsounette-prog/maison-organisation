@@ -201,6 +201,54 @@ function confetti(){
   }
 }
 </script>
+  let rdvs = JSON.parse(localStorage.getItem("rdvs") || "[]");
+
+function addRdv(){
+  const title = document.getElementById("rdvTitle").value.trim();
+  const date = document.getElementById("rdvDate").value;
+  const time = document.getElementById("rdvTime").value;
+
+  if(!title || !date){
+    alert("Titre et date obligatoires");
+    return;
+  }
+
+  rdvs.push({title,date,time});
+  localStorage.setItem("rdvs",JSON.stringify(rdvs));
+
+  document.getElementById("rdvTitle").value="";
+  document.getElementById("rdvDate").value="";
+  document.getElementById("rdvTime").value="";
+
+  renderRdvs();
+}
+
+function renderRdvs(){
+  const ul=document.getElementById("rdvList");
+  ul.innerHTML="";
+
+  rdvs
+    .sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time))
+    .forEach((r,i)=>{
+      const li=document.createElement("li");
+      li.style.marginBottom="8px";
+      li.innerHTML = `
+        📌 <b>${r.title}</b><br>
+        ${r.date} ${r.time || ""}
+        <button style="margin-left:8px;background:#ef4444"
+          onclick="deleteRdv(${i})">✖</button>
+      `;
+      ul.appendChild(li);
+    });
+}
+
+function deleteRdv(i){
+  rdvs.splice(i,1);
+  localStorage.setItem("rdvs",JSON.stringify(rdvs));
+  renderRdvs();
+}
+
+renderRdvs();
 </script>
 
 </body>
