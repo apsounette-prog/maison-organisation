@@ -1,75 +1,62 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Maison & Organisation</title>
 
 <style>
 body{
   margin:0;
-  font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto;
-  background:#f6f3ff;
-  color:#333;
+  font-family:system-ui,-apple-system;
+  background:linear-gradient(135deg,#fbcfe8,#ddd6fe,#bfdbfe);
 }
-
 header{
   padding:16px;
   font-size:22px;
-  font-weight:700;
+  font-weight:800;
 }
-
 nav{
   display:flex;
   gap:10px;
   padding:10px;
   flex-wrap:wrap;
 }
-
 .navbtn{
   background:#7c3aed;
   color:white;
   padding:10px 14px;
-  border-radius:14px;
-  font-weight:600;
-  cursor:pointer;
-  user-select:none;
+  border-radius:16px;
+  font-weight:700;
 }
-
-.section{
-  display:none;
-  padding:16px;
-}
-
-.section.active{
-  display:block;
-}
-
+.section{display:none;padding:16px;}
+.section.active{display:block;}
 .card{
   background:white;
-  border-radius:16px;
+  border-radius:18px;
   padding:14px;
-  margin-bottom:16px;
-  box-shadow:0 6px 16px rgba(0,0,0,.08);
+  margin-bottom:14px;
+  box-shadow:0 10px 25px rgba(0,0,0,.12);
 }
-
-h2{
-  margin-top:0;
-}
-
-label{
-  display:block;
-  margin:8px 0;
-}
-
+label{display:flex;gap:8px;margin:6px 0;}
 button{
   background:#ec4899;
-  border:none;
-  padding:10px 14px;
-  border-radius:14px;
   color:white;
-  font-weight:600;
-  margin-top:12px;
+  border:none;
+  padding:10px;
+  border-radius:14px;
+  font-weight:700;
+}
+#xpbox{
+  position:fixed;
+  bottom:16px;
+  right:16px;
+  background:#7c3aed;
+  color:white;
+  padding:10px 16px;
+  border-radius:20px;
+  font-weight:800;
+  z-index:9999;
 }
 </style>
 </head>
@@ -79,90 +66,84 @@ button{
 <header>🏠 Maison & Organisation</header>
 
 <nav>
-  <div class="navbtn" onclick="showSection('today')">Aujourd’hui</div>
-  <div class="navbtn" onclick="showSection('clean')">Ménage</div>
-  <div class="navbtn" onclick="showSection('agenda')">Agenda</div>
-  <div class="navbtn" onclick="showSection('kids')">Semaine</div>
-  <div class="navbtn" onclick="showSection('stats')">Exploits</div>
+  <div class="navbtn" onclick="show('today')">Aujourd’hui</div>
+  <div class="navbtn" onclick="show('clean')">Ménage</div>
+  <div class="navbtn" onclick="show('stats')">Exploits</div>
 </nav>
 
-<!-- AUJOURD'HUI -->
 <div id="today" class="section active">
   <div class="card">
-    <h2>✨ Focus du jour</h2>
-    <p>Fais juste une chose importante.</p>
+    <h2>✨ Objectif du jour</h2>
+    <p>Fais ce que tu peux. C’est déjà énorme 💜</p>
   </div>
 </div>
 
-<!-- MENAGE -->
 <div id="clean" class="section">
   <div class="card">
     <h2>🚿 Salle de bain</h2>
-    <label><input type="checkbox"> Lavabo</label>
-    <label><input type="checkbox"> Miroir</label>
-    <label><input type="checkbox"> WC</label>
-    <label><input type="checkbox"> Douche</label>
-    <button onclick="alert('🎉 Exploit validé !')">Exploit terminé</button>
+    <label><input type="checkbox" onchange="check()"> Lavabo</label>
+    <label><input type="checkbox" onchange="check()"> Miroir</label>
+    <label><input type="checkbox" onchange="check()"> WC</label>
+    <label><input type="checkbox" onchange="check()"> Douche</label>
+    <button onclick="validate()">Exploit terminé</button>
   </div>
 
   <div class="card">
     <h2>🍽️ Cuisine</h2>
-    <label><input type="checkbox"> Plan de travail</label>
-    <label><input type="checkbox"> Évier</label>
-    <label><input type="checkbox"> Plaques</label>
+    <label><input type="checkbox" onchange="check()"> Évier</label>
+    <label><input type="checkbox" onchange="check()"> Plan de travail</label>
+    <label><input type="checkbox" onchange="check()"> Plaques</label>
   </div>
 </div>
 
-<!-- AGENDA -->
-<div id="agenda" class="section">
-  <div class="card">
-    <h2>📅 Mes rendez-vous</h2>
-    <p>(à venir : ajout + rappels)</p>
-  </div>
-</div>
-
-<!-- SEMAINE -->
-<div id="kids" class="section">
-  <div class="card">
-    <h2>👨‍👩‍👧‍👦 Organisation semaine</h2>
-    <p>Semaine A / Semaine B</p>
-  </div>
-</div>
-
-<!-- STATS -->
 <div id="stats" class="section">
   <div class="card">
-    <h2>🏆 Exploits</h2>
-    <ul>
-      <li>Première salle de bain 💪</li>
-      <li>3 jours consécutifs 🔥</li>
+    <h2>🏆 Exploits débloqués</h2>
+    <ul id="achievements">
+      <li>Aucun pour l’instant</li>
     </ul>
   </div>
 </div>
 
+<div id="xpbox">⭐ XP : <span id="xp">0</span></div>
+
 <script>
-<script>
-function showSection(id){
-  document.querySelectorAll(".section").forEach(s=>{
-    s.classList.remove("active");
-  });
-  const target=document.getElementById(id);
-  if(target){
-    target.classList.add("active");
-    window.scrollTo(0,0);
-  }
+let xp = Number(localStorage.getItem("xp")) || 0;
+document.getElementById("xp").innerText = xp;
+
+function show(id){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  window.scrollTo(0,0);
 }
 
-/* XP */
-let xp = 0;
-function addXP(amount){
-  xp += amount;
+function check(){
+  xp += 5;
+  saveXP();
+}
+
+function validate(){
+  xp += 50;
+  saveXP();
+  confetti();
+  addAchievement("Salle de bain validée");
+}
+
+function saveXP(){
   document.getElementById("xp").innerText = xp;
+  localStorage.setItem("xp",xp);
 }
 
-/* CONFETTIS */
+function addAchievement(txt){
+  const ul=document.getElementById("achievements");
+  if(ul.children[0]?.innerText==="Aucun pour l’instant") ul.innerHTML="";
+  const li=document.createElement("li");
+  li.textContent="🎉 "+txt;
+  ul.appendChild(li);
+}
+
 function confetti(){
-  for(let i=0;i<35;i++){
+  for(let i=0;i<40;i++){
     const c=document.createElement("div");
     c.style.position="fixed";
     c.style.left=Math.random()*100+"vw";
@@ -173,42 +154,15 @@ function confetti(){
     c.style.borderRadius="50%";
     c.style.zIndex=9999;
     document.body.appendChild(c);
-
     let y=0;
     const fall=setInterval(()=>{
       y+=6;
       c.style.top=y+"px";
-      if(y>window.innerHeight){
-        clearInterval(fall);
-        c.remove();
-      }
+      if(y>window.innerHeight){clearInterval(fall);c.remove();}
     },16);
   }
 }
-
-/* EXPLOIT */
-function validateExploit(){
-  addXP(50);
-  confetti();
-  alert("🎉 Exploit validé ! +50 XP");
-}
 </script>
-</script>
-  <!-- GAMIFICATION UI -->
-<div style="
-  position:fixed;
-  bottom:14px;
-  right:14px;
-  background:#7c3aed;
-  color:white;
-  padding:10px 16px;
-  border-radius:20px;
-  font-weight:700;
-  box-shadow:0 6px 16px rgba(0,0,0,.25);
-  z-index:9999;
-">
-⭐ XP : <span id="xp">0</span>
-</div>
 
 </body>
 </html>
