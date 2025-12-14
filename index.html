@@ -96,7 +96,27 @@ button{
     <label><input type="checkbox" onchange="check()"> Plaques</label>
   </div>
 </div>
+<div id="agenda" class="section">
+  <div class="card">
+    <h2>📅 Ajouter un rendez-vous</h2>
 
+    <input id="rdvTitle" placeholder="Titre du rendez-vous"
+      style="width:100%;padding:10px;margin-bottom:8px;border-radius:10px;border:1px solid #ddd">
+
+    <input id="rdvDate" type="date"
+      style="width:100%;padding:10px;margin-bottom:8px;border-radius:10px;border:1px solid #ddd">
+
+    <input id="rdvTime" type="time"
+      style="width:100%;padding:10px;margin-bottom:8px;border-radius:10px;border:1px solid #ddd">
+
+    <button onclick="addRdv()">Ajouter</button>
+  </div>
+
+  <div class="card">
+    <h2>🗂️ Mes rendez-vous</h2>
+    <ul id="rdvList"></ul>
+  </div>
+</div>
 <div id="stats" class="section">
   <div class="card">
     <h2>🏆 Exploits débloqués</h2>
