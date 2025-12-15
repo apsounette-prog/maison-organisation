@@ -1,209 +1,188 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Maison & Organisation</title>
+import React, { useEffect, useMemo, useState } from "react";
+import confetti from "canvas-confetti";
 
-<style>
-body{
-  margin:0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background:#f5f3ff;
-}
+/* =======================
+   GOOGLE CALENDAR (.ICS)
+======================= */
+function parseICS(text) {
+  const events = [];
+  const lines = text.split(/\r?\n/);
+  let current = null;
 
-nav{
-  display:flex;
-  justify-content:space-around;
-  padding:10px;
-  background:#7c3aed;
-  color:white;
-}
-
-.navbtn{
-  cursor:pointer;
-  font-weight:600;
-}
-
-.section{
-  display:none;
-  padding:16px;
-}
-
-.section.active{
-  display:block;
-}
-
-.card{
-  background:white;
-  border-radius:16px;
-  padding:16px;
-  margin-bottom:16px;
-  box-shadow:0 4px 10px rgba(0,0,0,.08);
-}
-
-button{
-  background:#ec4899;
-  color:white;
-  border:none;
-  border-radius:12px;
-  padding:10px 14px;
-  font-size:16px;
-  cursor:pointer;
-}
-
-input{
-  width:100%;
-  padding:10px;
-  margin-bottom:10px;
-  border-radius:10px;
-  border:1px solid #ddd;
-}
-
-ul{
-  padding-left:0;
-  list-style:none;
-}
-
-li{
-  margin-bottom:8px;
-}
-</style>
-</head>
-
-<body>
-
-<nav>
-  <div class="navbtn" onclick="show('home')">Accueil</div>
-  <div class="navbtn" onclick="show('tasks')">Tâches</div>
-  <div class="navbtn" onclick="show('agenda')">Agenda</div>
-  <div class="navbtn" onclick="show('stats')">Stats</div>
-</nav>
-
-<!-- ACCUEIL -->
-<div id="home" class="section active">
-  <div class="card">
-    <h2>🏠 Maison & Organisation</h2>
-    <p>Ton app perso d’organisation + motivation ✨</p>
-  </div>
-</div>
-
-<!-- TACHES -->
-<div id="tasks" class="section">
-  <div class="card">
-    <h2>🧹 Nettoyer la salle de bain</h2>
-    <ul>
-      <li><input type="checkbox" onchange="taskDone()"> Lavabo</li>
-      <li><input type="checkbox" onchange="taskDone()"> Miroir</li>
-      <li><input type="checkbox" onchange="taskDone()"> Douche</li>
-      <li><input type="checkbox" onchange="taskDone()"> WC</li>
-      <li><input type="checkbox" onchange="taskDone()"> Sol</li>
-    </ul>
-  </div>
-</div>
-
-<!-- AGENDA -->
-<div id="agenda" class="section">
-  <div class="card">
-    <h2>📅 Ajouter un rendez-vous</h2>
-    <input id="rdvTitle" placeholder="Titre">
-    <input id="rdvDate" type="date">
-    <input id="rdvTime" type="time">
-    <button onclick="addRdv()">Ajouter</button>
-  </div>
-
-  <div class="card">
-    <h2>🗂️ Mes rendez-vous</h2>
-    <ul id="rdvList"></ul>
-  </div>
-</div>
-
-<!-- STATS -->
-<div id="stats" class="section">
-  <div class="card">
-    <h2>🏆 Progression</h2>
-    <p id="xp">XP : 0</p>
-  </div>
-</div>
-
-<script>
-/* NAVIGATION */
-function show(id){
-  document.querySelectorAll(".section").forEach(s=>{
-    s.classList.remove("active");
-  });
-  document.getElementById(id).classList.add("active");
-}
-
-/* XP + CONFETTIS */
-let xp = Number(localStorage.getItem("xp") || 0);
-document.getElementById("xp").innerText = "XP : " + xp;
-
-function taskDone(){
-  xp += 10;
-  localStorage.setItem("xp",xp);
-  document.getElementById("xp").innerText = "XP : " + xp;
-  confetti();
-}
-
-/* CONFETTIS */
-function confetti(){
-  for(let i=0;i<40;i++){
-    const c=document.createElement("div");
-    const size=Math.random()*6+6;
-
-    c.style.position="fixed";
-    c.style.left=Math.random()*100+"vw";
-    c.style.top="-20px";
-    c.style.width=size+"px";
-    c.style.height=size+"px";
-    c.style.background=["#ec4899","#7c3aed","#3b82f6","#f43f5e"][Math.floor(Math.random()*4)];
-    c.style.borderRadius=Math.random()>0.5?"50%":"4px";
-    c.style.zIndex=9999;
-    document.body.appendChild(c);
-
-    let y=-20,x=0,r=Math.random()*360,s=Math.random()*4+3;
-    const fall=setInterval(()=>{
-      y+=s; x+=Math.random()*2-1; r+=10;
-      c.style.transform=`translate(${x}px,${y}px) rotate(${r}deg)`;
-      if(y>window.innerHeight){clearInterval(fall);c.remove();}
-    },16);
+  for (let line of lines) {
+    if (line.startsWith("BEGIN:VEVENT")) current = {};
+    if (line.startsWith("SUMMARY:")) current.title = line.replace("SUMMARY:", "");
+    if (line.startsWith("DTSTART")) {
+      const raw = line.split(":")[1];
+      current.date = raw.slice(0, 8);
+      current.time =
+        raw.length > 8
+          ? raw.slice(9, 13).replace(/(..)/, "$1:")
+          : "";
+    }
+    if (line.startsWith("END:VEVENT") && current?.title) {
+      events.push({
+        id: uid("gcal_"),
+        title: current.title,
+        date: `${current.date.slice(0, 4)}-${current.date.slice(4, 6)}-${current.date.slice(6, 8)}`,
+        time: current.time || "",
+        category: "agenda",
+      });
+      current = null;
+    }
   }
+  return events;
 }
 
-/* AGENDA */
-let rdvs = JSON.parse(localStorage.getItem("rdvs") || "[]");
+/* =======================
+   UTILS
+======================= */
+const uid = (p = "") => p + Math.random().toString(36).slice(2, 9);
+const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const load = (k, f) => JSON.parse(localStorage.getItem(k) || JSON.stringify(f));
 
-function addRdv(){
-  const t=rdvTitle.value.trim();
-  const d=rdvDate.value;
-  const h=rdvTime.value;
-  if(!t||!d){alert("Titre et date obligatoires");return;}
-  rdvs.push({t,d,h});
-  localStorage.setItem("rdvs",JSON.stringify(rdvs));
-  rdvTitle.value="";rdvDate.value="";rdvTime.value="";
-  renderRdvs();
+/* =======================
+   MAIN APP
+======================= */
+export default function App() {
+  const [page, setPage] = useState("home");
+  const [tasks, setTasks] = useState(load("tasks", [
+    {
+      id: uid(),
+      label: "Nettoyer la salle de bain",
+      subtasks: [
+        { id: uid(), label: "Lavabo", done: false },
+        { id: uid(), label: "Miroir", done: false },
+        { id: uid(), label: "Douche", done: false },
+        { id: uid(), label: "WC", done: false },
+      ],
+    },
+  ]));
+
+  const [events, setEvents] = useState(load("events", []));
+
+  useEffect(() => save("tasks", tasks), [tasks]);
+  useEffect(() => save("events", events), [events]);
+
+  /* ===== TASKS ===== */
+  const toggleSubtask = (tid, sid) => {
+    setTasks(t =>
+      t.map(task =>
+        task.id !== tid
+          ? task
+          : {
+              ...task,
+              subtasks: task.subtasks.map(s =>
+                s.id === sid ? { ...s, done: !s.done } : s
+              ),
+            }
+      )
+    );
+
+    confetti({
+      particleCount: 80,
+      spread: 120,
+      origin: { x: Math.random(), y: 0.6 },
+      colors: ["#f472b6", "#a78bfa", "#60a5fa"],
+    });
+  };
+
+  /* ===== EVENTS ===== */
+  const addEvent = e => setEvents(prev => [...prev, e]);
+
+  const importICS = file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const imported = parseICS(e.target.result);
+      setEvents(prev => [...prev, ...imported]);
+      alert(`${imported.length} événements importés`);
+    };
+    reader.readAsText(file);
+  };
+
+  /* =======================
+     PAGES
+  ======================= */
+  const Home = () => (
+    <div className="space-y-4">
+      <h2 className="text-xl font-bold">Accueil</h2>
+      <p>Bienvenue dans ton organisateur 💜</p>
+    </div>
+  );
+
+  const Tasks = () => (
+    <div className="space-y-4">
+      <h2 className="text-xl font-bold">Tâches</h2>
+      {tasks.map(t => (
+        <div key={t.id} className="p-4 bg-white rounded-xl shadow">
+          <h3 className="font-semibold mb-2">{t.label}</h3>
+          {t.subtasks.map(s => (
+            <label key={s.id} className="flex gap-2">
+              <input
+                type="checkbox"
+                checked={s.done}
+                onChange={() => toggleSubtask(t.id, s.id)}
+              />
+              <span className={s.done ? "line-through opacity-60" : ""}>
+                {s.label}
+              </span>
+            </label>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+
+  const Agenda = () => (
+    <div className="space-y-4">
+      <h2 className="text-xl font-bold">Agenda</h2>
+
+      <div className="bg-white p-3 rounded-xl shadow">
+        <input
+          type="file"
+          accept=".ics"
+          onChange={e => importICS(e.target.files[0])}
+        />
+      </div>
+
+      <button
+        onClick={() =>
+          addEvent({
+            id: uid(),
+            title: "Nouveau RDV",
+            date: new Date().toISOString().slice(0, 10),
+            time: "",
+          })
+        }
+        className="px-4 py-2 bg-purple-600 text-white rounded-xl"
+      >
+        Ajouter un RDV
+      </button>
+
+      {events.map(ev => (
+        <div key={ev.id} className="p-3 bg-white rounded-xl shadow">
+          <div className="font-semibold">{ev.title}</div>
+          <div className="text-sm opacity-60">
+            {ev.date} {ev.time}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-pink-200 via-purple-200 to-blue-200 p-4">
+      <div className="max-w-xl mx-auto">
+        {page === "home" && <Home />}
+        {page === "tasks" && <Tasks />}
+        {page === "agenda" && <Agenda />}
+
+        <nav className="fixed bottom-4 left-4 right-4 bg-white rounded-full shadow flex justify-around p-2">
+          <button onClick={() => setPage("home")}>Accueil</button>
+          <button onClick={() => setPage("tasks")}>Tâches</button>
+          <button onClick={() => setPage("agenda")}>Agenda</button>
+        </nav>
+      </div>
+    </div>
+  );
 }
-
-function renderRdvs(){
-  rdvList.innerHTML="";
-  rdvs.sort((a,b)=>(a.d+a.h).localeCompare(b.d+b.h));
-  rdvs.forEach((r,i)=>{
-    const li=document.createElement("li");
-    li.innerHTML=`📌 <b>${r.t}</b> — ${r.d} ${r.h||""}
-      <button onclick="delRdv(${i})">✖</button>`;
-    rdvList.appendChild(li);
-  });
-}
-
-function delRdv(i){
-  rdvs.splice(i,1);
-  localStorage.setItem("rdvs",JSON.stringify(rdvs));
-  renderRdvs();
-}
-
-renderRdvs();
-</script>
-
-</body>
-</html>
