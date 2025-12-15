@@ -1,142 +1,428 @@
-<!DOCTYPE html>
+import React, { useEffect, useMemo, useState } from "react";
 
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Maison • Organisation</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
-</head>
-<body class="bg-gradient-to-br from-blue-100 via-violet-100 to-blue-200 min-h-screen">
+// Single-file React component (Tailwind CSS required)
+// Usage: paste into a React app (Vite/Create React App) with Tailwind configured.
+// This is a compact, production-minded prototype for a "home organization" mobile app.
 
-<div id="app" class="max-w-md mx-auto p-4 pb-24">
+export default function HomeOrgApp() {
+  // --- SETTINGS ---
+  const [workHours, setWorkHours] = useState({ start: "09:00", end: "17:30" });
+  // user sets a date that is considered the start of a 'kids week' to compute alternating weeks
+  const [kidsWeekStart, setKidsWeekStart] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - (d.getDay() || 7)); // set to last Monday by default
+    return d.toISOString().slice(0, 10);
+  });
 
-  <!-- Header -->
+  // --- SAMPLE DATA / PERSISTENCE ---
+  const [tasks, setTasks] = useState(() => {
+    try {
+      const raw = localStorage.getItem("homeorg_tasks");
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    // default sample tasks
+    return [
+      {
+        id: cryptoRandomId(),
+        title: "Passer l'aspirateur",
+        type: "chore",
+        color: "bg-indigo-400",
+        time: "10:00",
+        days: [1, 3, 5], // Mon, Wed, Fri
+        assigned: "moi",
+        durationMin: 25,
+        notes: "Salon + couloir",
+        active: true,
+      },
+      {
+        id: cryptoRandomId(),
+        title: "Gérer les factures",
+        type: "bill",
+        color: "bg-amber-400",
+        dueDate: addDaysISO(3),
+        amount: 120,
+        paid: false,
+        assigned: "moi",
+      },
+      {
+        id: cryptoRandomId(),
+        title: "Ranger chambres enfants",
+        type: "chore",
+        color: "bg-emerald-400",
+        time: "18:00",
+        days: [],
+        assigned: "enfants",
+        everyOtherWeek: true,
+        durationMin: 20,
+      },
+    ];
+  });
 
-  <header class="mb-6">
-    <h1 class="text-2xl font-bold text-blue-900">Aujourd’hui</h1>
-    <p id="today" class="text-sm text-blue-700"></p>
-  </header>
+  useEffect(() => {
+    localStorage.setItem("homeorg_tasks", JSON.stringify(tasks));
+  }, [tasks]);
 
-  <!-- Progress -->
+  // --- UI STATE ---
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [filter, setFilter] = useState({ showBills: true, showChores: true });
+  const [editing, setEditing] = useState(null);
 
-  <div class="bg-white/80 rounded-2xl p-4 shadow mb-6">
-    <p class="text-sm text-gray-600 mb-2">Progression du jour</p>
-    <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-      <div id="progressBar" class="h-full bg-gradient-to-r from-violet-400 to-blue-500" style="width:0%"></div>
+  // helpers
+  function cryptoRandomId() {
+    return Math.random().toString(36).slice(2, 9);
+  }
+
+  function addDaysISO(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // compute whether a given date is a 'kids week' based on parity from kidsWeekStart
+  function isKidsWeek(dateISO) {
+    const a = new Date(kidsWeekStart);
+    a.setHours(0, 0, 0, 0);
+    const b = new Date(dateISO);
+    b.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((b - a) / (1000 * 60 * 60 * 24));
+    if (isNaN(diffDays)) return false;
+    const weeks = Math.floor(diffDays / 7);
+    return weeks % 2 === 0; // same parity as start date means kids week
+  }
+
+  // Week view: get 7 days starting Monday containing selectedDate
+  const weekDates = useMemo(() => {
+    const d = new Date(selectedDate + "T00:00");
+    const day = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((day + 6) % 7));
+    const arr = [];
+    for (let i = 0; i < 7; i++) {
+      const dd = new Date(monday);
+      dd.setDate(monday.getDate() + i);
+      arr.push(dd.toISOString().slice(0, 10));
+    }
+    return arr;
+  }, [selectedDate]);
+
+  // tasks for a specific date
+  function tasksForDate(dateISO) {
+    const weekday = new Date(dateISO).getDay(); // 0 Sun .. 6 Sat
+    const weekdayISO = weekday === 0 ? 7 : weekday; // 1 Mon .. 7 Sun
+    return tasks.filter((t) => {
+      if (!t.active) return false;
+      if (t.type === "bill") return true; // bills show under their due date UI separately
+
+      // everyOtherWeek logic: if set, show only when date is kids week OR not depending on assigned
+      if (t.everyOtherWeek) {
+        // t.assigned may be 'enfants' meaning do when kids present
+        const kidsPresent = isKidsWeek(dateISO);
+        if (t.assigned === "enfants" && !kidsPresent) return false;
+        if (t.assigned === "moi" && kidsPresent) return false; // example: some tasks only when kids absent
+      }
+
+      if (t.days && t.days.length) {
+        return t.days.includes(weekdayISO);
+      }
+      // if no days defined but time defined, show on selected day(s) — we treat as flexible if no days
+      return true;
+    });
+  }
+
+  // CRUD helpers
+  function upsertTask(task) {
+    if (!task.id) task.id = cryptoRandomId();
+    setTasks((prev) => {
+      const idx = prev.findIndex((p) => p.id === task.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = task;
+        return copy;
+      }
+      return [task, ...prev];
+    });
+    setEditing(null);
+  }
+
+  function removeTask(id) {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function togglePaid(id) {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, paid: !t.paid } : t)));
+  }
+
+  // export/import
+  function exportJSON() {
+    const blob = new Blob([JSON.stringify({ tasks, kidsWeekStart, workHours }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "homeorg-export.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importJSON(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (data.tasks) setTasks(data.tasks);
+        if (data.kidsWeekStart) setKidsWeekStart(data.kidsWeekStart);
+        if (data.workHours) setWorkHours(data.workHours);
+      } catch (err) {
+        alert("Fichier invalide");
+      }
+    };
+    reader.readAsText(f);
+  }
+
+  // --- RENDER ---
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-xl mx-auto bg-white rounded-2xl shadow p-4">
+        <header className="flex items-center justify-between mb-3">
+          <h1 className="text-xl font-semibold">Organisation Maison</h1>
+          <div className="text-sm text-gray-600">Semaine: {weekDates[0]} → {weekDates[6]}</div>
+        </header>
+
+        {/* Controls */}
+        <div className="flex gap-2 mb-4">
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="p-2 border rounded w-1/2"
+          />
+          <button
+            className="p-2 bg-indigo-600 text-white rounded flex-1"
+            onClick={() => {
+              // jump to next week
+              const d = new Date(selectedDate);
+              d.setDate(d.getDate() + 7);
+              setSelectedDate(d.toISOString().slice(0, 10));
+            }}
+          >
+            Semaine suivante
+          </button>
+        </div>
+
+        {/* Week overview */}
+        <div className="grid grid-cols-7 gap-2 mb-4">
+          {weekDates.map((d) => (
+            <div key={d} className="p-2 rounded-lg border text-xs">
+              <div className="flex items-center justify-between mb-1">
+                <div className="font-medium">{formatShortDate(d)}</div>
+                <div className="text-[10px] px-1 py-0.5 rounded text-white bg-gray-400">{isKidsWeek(d) ? "Enfants" : "Sans"}</div>
+              </div>
+              <div className="space-y-1">
+                {tasksForDate(d)
+                  .filter((t) => t.type !== "bill")
+                  .slice(0, 3)
+                  .map((t) => (
+                    <div key={t.id} className={`text-[12px] p-1 rounded ${t.color} text-white`}>
+                      <div className="font-medium">{t.title}</div>
+                      <div className="text-[11px]">{t.time || (t.durationMin ? `${t.durationMin} min` : "Flexible")}</div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bills quick list */}
+        <section className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold">Factures & Paiements</h2>
+            <div className="text-xs text-gray-500">(toggle payé)</div>
+          </div>
+          <div className="space-y-2">
+            {tasks
+              .filter((t) => t.type === "bill")
+              .slice(0, 5)
+              .map((b) => (
+                <div key={b.id} className="flex items-center justify-between p-2 border rounded">
+                  <div>
+                    <div className="font-medium">{b.title}</div>
+                    <div className="text-xs text-gray-500">Due: {b.dueDate} — {b.amount ? `${b.amount} €` : "—"}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className={`px-3 py-1 rounded ${b.paid ? "bg-green-200" : "bg-red-200"}`} onClick={() => togglePaid(b.id)}>
+                      {b.paid ? "Payée" : "À payer"}
+                    </button>
+                    <button className="text-sm text-gray-500" onClick={() => setEditing(b)}>
+                      ✎
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
+
+        {/* Task list + add button */}
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold">Tâches et routines</h2>
+            <div className="flex gap-2">
+              <button
+                className="px-3 py-1 border rounded text-sm"
+                onClick={() => {
+                  setEditing({
+                    id: null,
+                    title: "",
+                    type: "chore",
+                    color: "bg-indigo-400",
+                    time: "",
+                    days: [],
+                    assigned: "moi",
+                    everyOtherWeek: false,
+                    durationMin: 15,
+                    active: true,
+                  });
+                }}
+              >
+                + Ajouter
+              </button>
+              <button className="px-3 py-1 border rounded text-sm" onClick={exportJSON}>Exporter</button>
+              <label className="px-3 py-1 border rounded text-sm cursor-pointer">
+                Importer
+                <input type="file" accept="application/json" onChange={importJSON} className="hidden" />
+              </label>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-64 overflow-auto">
+            {tasks.map((t) => (
+              <div key={t.id} className="p-2 border rounded flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-8 rounded ${t.color}`} />
+                  <div>
+                    <div className="font-medium">{t.title}</div>
+                    <div className="text-xs text-gray-500">{t.type} — {t.assigned}{t.everyOtherWeek ? " — Une semaine sur deux" : ""}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className="text-xs text-gray-500" onClick={() => setEditing(t)}>✎</button>
+                  <button className="text-xs text-red-500" onClick={() => removeTask(t.id)}>🗑</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Editing modal (inline) */}
+        {editing && (
+          <div className="fixed inset-0 bg-black/30 flex items-end md:items-center justify-center p-4">
+            <div className="bg-white rounded-xl w-full max-w-md p-4">
+              <h3 className="font-semibold mb-2">{editing.id ? "Modifier" : "Nouvelle tâche"}</h3>
+              <div className="space-y-2">
+                <input className="w-full p-2 border rounded" placeholder="Titre" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
+                <div className="flex gap-2">
+                  <select value={editing.type} onChange={(e) => setEditing({ ...editing, type: e.target.value })} className="p-2 border rounded flex-1">
+                    <option value="chore">Ménage / Tâche</option>
+                    <option value="bill">Facture</option>
+                    <option value="other">Autre</option>
+                  </select>
+                  <input type="time" value={editing.time || ""} onChange={(e) => setEditing({ ...editing, time: e.target.value })} className="p-2 border rounded" />
+                </div>
+
+                <div className="flex gap-2 text-sm">
+                  <label className="flex-1">
+                    <div className="text-xs text-gray-600">Assignée à</div>
+                    <select value={editing.assigned} onChange={(e) => setEditing({ ...editing, assigned: e.target.value })} className="w-full p-2 border rounded">
+                      <option value="moi">Moi</option>
+                      <option value="enfants">Enfants</option>
+                      <option value="tous">Tous</option>
+                    </select>
+                  </label>
+                  <label className="flex-1">
+                    <div className="text-xs text-gray-600">Durée (min)</div>
+                    <input type="number" value={editing.durationMin || 0} onChange={(e) => setEditing({ ...editing, durationMin: Number(e.target.value) })} className="w-full p-2 border rounded" />
+                  </label>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-600 mb-1">Jours (cochez pour répétition hebdo)</div>
+                  <div className="flex gap-1 text-xs">
+                    {['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map((label, i) => {
+                      const val = i + 1;
+                      const checked = (editing.days || []).includes(val);
+                      return (
+                        <button key={label} onClick={() => {
+                          const days = new Set(editing.days || []);
+                          if (days.has(val)) days.delete(val); else days.add(val);
+                          setEditing({ ...editing, days: Array.from(days).sort() });
+                        }} className={`p-1 rounded text-[12px] border ${checked ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}>{label}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={!!editing.everyOtherWeek} onChange={(e) => setEditing({ ...editing, everyOtherWeek: e.target.checked })} />
+                    Une semaine sur deux
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={!!editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} />
+                    Active
+                  </label>
+                </div>
+
+                {editing.type === 'bill' && (
+                  <div className="flex gap-2">
+                    <input type="date" value={editing.dueDate || addDaysISO(0)} onChange={(e) => setEditing({ ...editing, dueDate: e.target.value })} className="p-2 border rounded flex-1" />
+                    <input type="number" placeholder="€" value={editing.amount || 0} onChange={(e) => setEditing({ ...editing, amount: Number(e.target.value) })} className="p-2 border rounded w-24" />
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 mt-2">
+                  <button className="px-3 py-1" onClick={() => setEditing(null)}>Annuler</button>
+                  <button className="px-3 py-1 bg-indigo-600 text-white rounded" onClick={() => upsertTask(editing)}>Enregistrer</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings panel */}
+        <div className="mt-4 border-t pt-3 text-sm text-gray-600">
+          <h3 className="font-semibold">Paramètres</h3>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className="text-xs">
+              Heure début travail
+              <input type="time" value={workHours.start} onChange={(e) => setWorkHours({ ...workHours, start: e.target.value })} className="w-full p-1 border rounded mt-1" />
+            </label>
+            <label className="text-xs">
+              Heure fin travail
+              <input type="time" value={workHours.end} onChange={(e) => setWorkHours({ ...workHours, end: e.target.value })} className="w-full p-1 border rounded mt-1" />
+            </label>
+          </div>
+
+          <div className="mt-2">
+            <div className="text-xs">Date de référence pour alternance enfants</div>
+            <input type="date" value={kidsWeekStart} onChange={(e) => setKidsWeekStart(e.target.value)} className="p-2 border rounded mt-1 w-full" />
+            <div className="text-xs text-gray-500 mt-1">Choisissez une date qui correspond au début d'une semaine où vous avez les enfants — l'application déduira la semaine sur deux ensuite.</div>
+          </div>
+        </div>
+
+      </div>
     </div>
-  </div>
-
-  <!-- Tasks -->
-
-  <section class="space-y-3" id="tasks"></section>
-
-  <!-- Agenda -->
-
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold text-blue-900 mb-3">Agenda</h2>
-    <div id="events" class="space-y-2"></div>
-    <button onclick="openEventModal()" class="mt-4 w-full py-3 rounded-xl bg-violet-600 text-white font-semibold">➕ Ajouter un rendez-vous</button>
-  </section>
-</div>
-
-<!-- Bottom Nav -->
-
-<nav class="fixed bottom-4 left-4 right-4 bg-white/90 backdrop-blur rounded-full shadow flex justify-around py-2">
-  <span class="font-semibold text-blue-700">Accueil</span>
-  <span class="text-gray-400">Tâches</span>
-  <span class="text-gray-400">Agenda</span>
-</nav>
-
-<!-- Modal -->
-
-<div id="eventModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl p-6 w-full max-w-sm space-y-3">
-    <h3 class="font-bold text-lg">Nouveau rendez-vous</h3>
-    <input id="evTitle" placeholder="Titre" class="w-full border p-2 rounded" />
-    <input id="evDate" type="date" class="w-full border p-2 rounded" />
-    <input id="evTime" type="time" class="w-full border p-2 rounded" />
-    <div class="flex justify-between">
-      <button onclick="closeEventModal()" class="px-4 py-2 rounded bg-gray-200">Annuler</button>
-      <button onclick="addEvent()" class="px-4 py-2 rounded bg-blue-600 text-white">Ajouter</button>
-    </div>
-  </div>
-</div>
-
-<script>
-// Date
-document.getElementById('today').innerText = new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' })
-
-// Data
-let tasks = JSON.parse(localStorage.getItem('tasks')) || [
-  { id:1, label:'Nettoyer la cuisine', done:false },
-  { id:2, label:'Lancer une lessive', done:false },
-  { id:3, label:'Ranger le salon', done:false }
-]
-
-let events = JSON.parse(localStorage.getItem('events')) || []
-
-function save() {
-  localStorage.setItem('tasks', JSON.stringify(tasks))
-  localStorage.setItem('events', JSON.stringify(events))
+  );
 }
 
-function renderTasks() {
-  const container = document.getElementById('tasks')
-  container.innerHTML = ''
-  tasks.forEach(t => {
-    const div = document.createElement('div')
-    div.className = 'bg-white/80 rounded-xl p-4 flex justify-between items-center shadow'
-    div.innerHTML = `
-      <span class="${t.done?'line-through text-gray-400':''}">${t.label}</span>
-      <input type="checkbox" ${t.done?'checked':''} />
-    `
-    div.querySelector('input').onchange = () => toggleTask(t.id)
-    container.appendChild(div)
-  })
-  updateProgress()
+// --- Small helpers used in UI ---
+function formatShortDate(iso) {
+  const d = new Date(iso + "T00:00");
+  const dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  return `${dayNames[d.getDay()]} ${d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}`;
 }
 
-function toggleTask(id) {
-  const t = tasks.find(x=>x.id===id)
-  t.done = !t.done
-  save()
-  renderTasks()
-  if(t.done) confetti({ spread:120, particleCount:60 })
+function addDaysISO(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
 }
-
-function updateProgress() {
-  const done = tasks.filter(t=>t.done).length
-  const pct = Math.round((done/tasks.length)*100)
-  document.getElementById('progressBar').style.width = pct+'%'
-}
-
-function renderEvents() {
-  const c = document.getElementById('events')
-  c.innerHTML = ''
-  events.forEach(e=>{
-    const d = document.createElement('div')
-    d.className='bg-white/80 rounded-xl p-3 shadow text-sm'
-    d.innerText = `${e.date} ${e.time||''} • ${e.title}`
-    c.appendChild(d)
-  })
-}
-
-function openEventModal(){ document.getElementById('eventModal').classList.remove('hidden') }
-function closeEventModal(){ document.getElementById('eventModal').classList.add('hidden') }
-
-function addEvent(){
-  events.push({
-    title: evTitle.value,
-    date: evDate.value,
-    time: evTime.value
-  })
-  save(); renderEvents(); closeEventModal()
-}
-
-renderTasks(); renderEvents();
-</script>
-
-</body>
-</html>
