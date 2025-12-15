@@ -1,188 +1,187 @@
-import React, { useEffect, useMemo, useState } from "react";
-import confetti from "canvas-confetti";
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Maison • Organisation</title>
 
-/* =======================
-   GOOGLE CALENDAR (.ICS)
-======================= */
-function parseICS(text) {
-  const events = [];
-  const lines = text.split(/\r?\n/);
-  let current = null;
+<style>
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: linear-gradient(135deg, #fbcfe8, #ddd6fe, #bfdbfe);
+}
+header {
+  padding: 16px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+}
+section {
+  padding: 16px;
+}
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.1);
+}
+button {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: none;
+  background: #7c3aed;
+  color: white;
+  font-weight: bold;
+}
+nav {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: space-around;
+  background: white;
+  border-radius: 999px;
+  padding: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.2);
+}
+nav button {
+  background: none;
+  color: #333;
+}
+nav button.active {
+  background: #7c3aed;
+  color: white;
+}
+.task label {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0;
+}
+input[type="file"] {
+  width: 100%;
+}
+</style>
+</head>
 
-  for (let line of lines) {
-    if (line.startsWith("BEGIN:VEVENT")) current = {};
-    if (line.startsWith("SUMMARY:")) current.title = line.replace("SUMMARY:", "");
-    if (line.startsWith("DTSTART")) {
-      const raw = line.split(":")[1];
-      current.date = raw.slice(0, 8);
-      current.time =
-        raw.length > 8
-          ? raw.slice(9, 13).replace(/(..)/, "$1:")
-          : "";
-    }
-    if (line.startsWith("END:VEVENT") && current?.title) {
-      events.push({
-        id: uid("gcal_"),
-        title: current.title,
-        date: `${current.date.slice(0, 4)}-${current.date.slice(4, 6)}-${current.date.slice(6, 8)}`,
-        time: current.time || "",
-        category: "agenda",
-      });
-      current = null;
-    }
-  }
-  return events;
+<body>
+
+<header>🏠 Maison • Organisation</header>
+
+<section id="home" class="page">
+  <div class="card">
+    <h3>Bienvenue 💜</h3>
+    <p>Ton organisateur personnel maison, tâches et agenda.</p>
+  </div>
+</section>
+
+<section id="tasks" class="page" style="display:none">
+  <div class="card">
+    <h3>🧹 Nettoyer la salle de bain</h3>
+    <div class="task">
+      <label><input type="checkbox"> Lavabo</label>
+      <label><input type="checkbox"> Miroir</label>
+      <label><input type="checkbox"> Douche</label>
+      <label><input type="checkbox"> WC</label>
+    </div>
+  </div>
+</section>
+
+<section id="agenda" class="page" style="display:none">
+  <div class="card">
+    <h3>📅 Importer Google Agenda</h3>
+    <input type="file" accept=".ics" onchange="importICS(event)">
+  </div>
+
+  <div class="card">
+    <h3>➕ Ajouter un RDV</h3>
+    <input id="title" placeholder="Titre" style="width:100%;margin-bottom:8px">
+    <input id="date" type="date" style="width:100%;margin-bottom:8px">
+    <button onclick="addEvent()">Ajouter</button>
+  </div>
+
+  <div id="events"></div>
+</section>
+
+<nav>
+  <button class="active" onclick="show('home',this)">Accueil</button>
+  <button onclick="show('tasks',this)">Tâches</button>
+  <button onclick="show('agenda',this)">Agenda</button>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<script>
+const pages = document.querySelectorAll('.page');
+const buttons = document.querySelectorAll('nav button');
+const events = JSON.parse(localStorage.getItem('events') || '[]');
+
+function show(id, btn) {
+  pages.forEach(p => p.style.display = 'none');
+  document.getElementById(id).style.display = 'block';
+  buttons.forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
 }
 
-/* =======================
-   UTILS
-======================= */
-const uid = (p = "") => p + Math.random().toString(36).slice(2, 9);
-const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
-const load = (k, f) => JSON.parse(localStorage.getItem(k) || JSON.stringify(f));
-
-/* =======================
-   MAIN APP
-======================= */
-export default function App() {
-  const [page, setPage] = useState("home");
-  const [tasks, setTasks] = useState(load("tasks", [
-    {
-      id: uid(),
-      label: "Nettoyer la salle de bain",
-      subtasks: [
-        { id: uid(), label: "Lavabo", done: false },
-        { id: uid(), label: "Miroir", done: false },
-        { id: uid(), label: "Douche", done: false },
-        { id: uid(), label: "WC", done: false },
-      ],
-    },
-  ]));
-
-  const [events, setEvents] = useState(load("events", []));
-
-  useEffect(() => save("tasks", tasks), [tasks]);
-  useEffect(() => save("events", events), [events]);
-
-  /* ===== TASKS ===== */
-  const toggleSubtask = (tid, sid) => {
-    setTasks(t =>
-      t.map(task =>
-        task.id !== tid
-          ? task
-          : {
-              ...task,
-              subtasks: task.subtasks.map(s =>
-                s.id === sid ? { ...s, done: !s.done } : s
-              ),
-            }
-      )
-    );
-
+document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+  cb.addEventListener('change', () => {
     confetti({
       particleCount: 80,
       spread: 120,
       origin: { x: Math.random(), y: 0.6 },
-      colors: ["#f472b6", "#a78bfa", "#60a5fa"],
+      colors: ['#f472b6','#a78bfa','#60a5fa']
     });
-  };
+  });
+});
 
-  /* ===== EVENTS ===== */
-  const addEvent = e => setEvents(prev => [...prev, e]);
-
-  const importICS = file => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const imported = parseICS(e.target.result);
-      setEvents(prev => [...prev, ...imported]);
-      alert(`${imported.length} événements importés`);
-    };
-    reader.readAsText(file);
-  };
-
-  /* =======================
-     PAGES
-  ======================= */
-  const Home = () => (
-    <div className="space-y-4">
-      <h2 className="text-xl font-bold">Accueil</h2>
-      <p>Bienvenue dans ton organisateur 💜</p>
-    </div>
-  );
-
-  const Tasks = () => (
-    <div className="space-y-4">
-      <h2 className="text-xl font-bold">Tâches</h2>
-      {tasks.map(t => (
-        <div key={t.id} className="p-4 bg-white rounded-xl shadow">
-          <h3 className="font-semibold mb-2">{t.label}</h3>
-          {t.subtasks.map(s => (
-            <label key={s.id} className="flex gap-2">
-              <input
-                type="checkbox"
-                checked={s.done}
-                onChange={() => toggleSubtask(t.id, s.id)}
-              />
-              <span className={s.done ? "line-through opacity-60" : ""}>
-                {s.label}
-              </span>
-            </label>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-
-  const Agenda = () => (
-    <div className="space-y-4">
-      <h2 className="text-xl font-bold">Agenda</h2>
-
-      <div className="bg-white p-3 rounded-xl shadow">
-        <input
-          type="file"
-          accept=".ics"
-          onChange={e => importICS(e.target.files[0])}
-        />
-      </div>
-
-      <button
-        onClick={() =>
-          addEvent({
-            id: uid(),
-            title: "Nouveau RDV",
-            date: new Date().toISOString().slice(0, 10),
-            time: "",
-          })
-        }
-        className="px-4 py-2 bg-purple-600 text-white rounded-xl"
-      >
-        Ajouter un RDV
-      </button>
-
-      {events.map(ev => (
-        <div key={ev.id} className="p-3 bg-white rounded-xl shadow">
-          <div className="font-semibold">{ev.title}</div>
-          <div className="text-sm opacity-60">
-            {ev.date} {ev.time}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-200 via-purple-200 to-blue-200 p-4">
-      <div className="max-w-xl mx-auto">
-        {page === "home" && <Home />}
-        {page === "tasks" && <Tasks />}
-        {page === "agenda" && <Agenda />}
-
-        <nav className="fixed bottom-4 left-4 right-4 bg-white rounded-full shadow flex justify-around p-2">
-          <button onClick={() => setPage("home")}>Accueil</button>
-          <button onClick={() => setPage("tasks")}>Tâches</button>
-          <button onClick={() => setPage("agenda")}>Agenda</button>
-        </nav>
-      </div>
-    </div>
-  );
+function renderEvents() {
+  const box = document.getElementById('events');
+  box.innerHTML = '';
+  events.forEach(e => {
+    const d = document.createElement('div');
+    d.className = 'card';
+    d.innerHTML = `<strong>${e.title}</strong><br>${e.date}`;
+    box.appendChild(d);
+  });
 }
+
+function addEvent() {
+  const title = document.getElementById('title').value;
+  const date = document.getElementById('date').value;
+  if (!title || !date) return alert("Titre et date requis");
+  events.push({ title, date });
+  localStorage.setItem('events', JSON.stringify(events));
+  renderEvents();
+}
+
+function importICS(e) {
+  const file = e.target.files[0];
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const lines = ev.target.result.split(/\r?\n/);
+    let current = {};
+    lines.forEach(l => {
+      if (l.startsWith("SUMMARY:")) current.title = l.replace("SUMMARY:", "");
+      if (l.startsWith("DTSTART")) {
+        const d = l.split(":")[1].slice(0,8);
+        current.date = `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+      }
+      if (l.startsWith("END:VEVENT") && current.title) {
+        events.push({...current});
+        current = {};
+      }
+    });
+    localStorage.setItem('events', JSON.stringify(events));
+    renderEvents();
+    alert("Agenda importé ✔");
+  };
+  reader.readAsText(file);
+}
+
+renderEvents();
+</script>
+
+</body>
+</html>
