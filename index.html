@@ -1,278 +1,60 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Maison • Organisation</title>
+// VERSION CLEAN – Option 2 (Bleu / Violet) // Copie-colle TOUT ce fichier dans index.html (ou App.jsx si tu sais) // Fonctionne en PWA simple, offline, stockage local
 
-<style>
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-  background: linear-gradient(135deg, #fbcfe8, #ddd6fe, #bfdbfe);
-}
-header {
-  padding: 16px;
-  text-align: center;
-  font-size: 22px;
-  font-weight: bold;
-}
-section {
-  padding: 16px;
-}
-.card {
-  background: white;
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 10px rgba(0,0,0,.1);
-}
-button {
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: none;
-  background: #7c3aed;
-  color: white;
-  font-weight: bold;
-}
-nav {
-  position: fixed;
-  bottom: 10px;
-  left: 10px;
-  right: 10px;
-  display: flex;
-  justify-content: space-around;
-  background: white;
-  border-radius: 999px;
-  padding: 10px;
-  box-shadow: 0 6px 20px rgba(0,0,0,.2);
-}
-nav button {
-  background: none;
-  color: #333;
-}
-nav button.active {
-  background: #7c3aed;
-  color: white;
-}
-.task label {
-  display: flex;
-  gap: 8px;
-  margin: 6px 0;
-}
-input[type="file"] {
-  width: 100%;
-}
-</style>
-</head>
+import React, { useState, useEffect } from "https://esm.sh/react@18"; import ReactDOM from "https://esm.sh/react-dom@18"; import confetti from "https://esm.sh/canvas-confetti";
 
-<body>
+const CATEGORIES = { maison: "bg-violet-100 text-violet-800", enfants: "bg-blue-100 text-blue-800", admin: "bg-indigo-100 text-indigo-800", };
 
-<header>🏠 Maison • Organisation</header>
+const DEFAULT_TASKS = [ { id: 1, title: "Salle de bain", category: "maison", freq: 7, lastDone: null }, { id: 2, title: "Cuisine", category: "maison", freq: 3, lastDone: null }, { id: 3, title: "Lessive", category: "maison", freq: 2, lastDone: null }, { id: 4, title: "Sacs école", category: "enfants", freq: 1, lastDone: null }, ];
 
-<section id="home" class="page">
-  <div class="card">
-    <h3>Bienvenue 💜</h3>
-    <p>Ton organisateur personnel maison, tâches et agenda.</p>
+function daysSince(date) { if (!date) return Infinity; return Math.floor((Date.now() - new Date(date)) / 86400000); }
+
+function App() { const [tasks, setTasks] = useState(() => JSON.parse(localStorage.getItem("tasks")) || DEFAULT_TASKS); const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem("events")) || []); const [page, setPage] = useState("home");
+
+useEffect(() => localStorage.setItem("tasks", JSON.stringify(tasks)), [tasks]); useEffect(() => localStorage.setItem("events", JSON.stringify(events)), [events]);
+
+function completeTask(id) { setTasks(t => t.map(task => task.id === id ? { ...task, lastDone: new Date().toISOString() } : task)); confetti({ particleCount: 80, spread: 90, origin: { y: 0.7 } }); }
+
+const todayTasks = tasks.filter(t => daysSince(t.lastDone) >= t.freq);
+
+return ( <div className="min-h-screen bg-gradient-to-br from-blue-200 to-violet-200 p-4"> <div className="max-w-md mx-auto space-y-4"> <header className="text-center"> <h1 className="text-2xl font-bold text-violet-800">Maison · Organisation</h1> <p className="text-sm opacity-70">{new Date().toLocaleDateString()}</p> </header>
+
+{page === "home" && (
+      <div className="space-y-3">
+        <h2 className="font-semibold">À faire aujourd'hui</h2>
+        {todayTasks.length === 0 && <p className="opacity-60">Rien d'urgent 💙</p>}
+        {todayTasks.map(t => (
+          <div key={t.id} className={`p-3 rounded-xl shadow bg-white flex justify-between items-center ${CATEGORIES[t.category]}`}>
+            <span>{t.title}</span>
+            <button onClick={() => completeTask(t.id)} className="px-3 py-1 bg-violet-600 text-white rounded-full">✔</button>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {page === "agenda" && (
+      <div className="space-y-3">
+        <h2 className="font-semibold">Agenda</h2>
+        <button onClick={() => {
+          const title = prompt("Titre du RDV");
+          const date = prompt("Date (YYYY-MM-DD)");
+          if (title && date) setEvents(e => [...e, { id: Date.now(), title, date }]);
+        }} className="w-full p-2 bg-blue-600 text-white rounded-xl">+ Ajouter un RDV</button>
+        {events.map(ev => (
+          <div key={ev.id} className="p-3 bg-white rounded-xl shadow">
+            <div className="font-semibold">{ev.title}</div>
+            <div className="text-sm opacity-70">{ev.date}</div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    <nav className="fixed bottom-4 left-4 right-4 bg-white rounded-full shadow flex justify-around p-2">
+      <button onClick={() => setPage("home")} className="px-4 py-2">🏠</button>
+      <button onClick={() => setPage("agenda")} className="px-4 py-2">📅</button>
+    </nav>
   </div>
-</section>
+</div>
 
-<section id="tasks" class="page" style="display:none">
-  <div class="card">
-    <h3>🧹 Nettoyer la salle de bain</h3>
-    <div class="task">
-      <label><input type="checkbox"> Lavabo</label>
-      <label><input type="checkbox"> Miroir</label>
-      <label><input type="checkbox"> Douche</label>
-      <label><input type="checkbox"> WC</label>
-    </div>
-  </div>
-</section>
+); }
 
-<section id="agenda" class="page" style="display:none">
-
-  <div class="card">
-    <h3>📅 Agenda</h3>
-    <div style="display:flex;gap:8px">
-      <button onclick="setView('day')">Jour</button>
-      <button onclick="setView('week')">Semaine</button>
-      <button onclick="setView('month')">Mois</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <input type="date" id="selectedDate" onchange="renderAgenda()" />
-  </div>
-
-  <div class="card">
-    <h4>Importer Google Agenda</h4>
-    <input type="file" accept=".ics" onchange="importICS(event)">
-  </div>
-
-  <div class="card">
-    <h4>➕ Ajouter un RDV</h4>
-    <input id="title" placeholder="Titre" style="width:100%;margin-bottom:8px">
-    <input id="date" type="date" style="width:100%;margin-bottom:8px">
-    <button onclick="addEvent()">Ajouter</button>
-  </div>
-
-  <div id="agendaView"></div>
-
-</section>
-  <div class="card">
-    <h3>📅 Importer Google Agenda</h3>
-    <input type="file" accept=".ics" onchange="importICS(event)">
-  </div>
-
-  <div class="card">
-    <h3>➕ Ajouter un RDV</h3>
-    <input id="title" placeholder="Titre" style="width:100%;margin-bottom:8px">
-    <input id="date" type="date" style="width:100%;margin-bottom:8px">
-    <button onclick="addEvent()">Ajouter</button>
-  </div>
-
-  <div id="events"></div>
-</section>
-
-<nav>
-  <button class="active" onclick="show('home',this)">Accueil</button>
-  <button onclick="show('tasks',this)">Tâches</button>
-  <button onclick="show('agenda',this)">Agenda</button>
-</nav>
-
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
-<script>
-const pages = document.querySelectorAll('.page');
-const buttons = document.querySelectorAll('nav button');
-const events = JSON.parse(localStorage.getItem('events') || '[]');
-
-function show(id, btn) {
-  pages.forEach(p => p.style.display = 'none');
-  document.getElementById(id).style.display = 'block';
-  buttons.forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-}
-
-document.querySelectorAll('input[type=checkbox]').forEach(cb => {
-  cb.addEventListener('change', () => {
-    confetti({
-      particleCount: 80,
-      spread: 120,
-      origin: { x: Math.random(), y: 0.6 },
-      colors: ['#f472b6','#a78bfa','#60a5fa']
-    });
-  });
-});
-
-function renderEvents() {
-  const box = document.getElementById('events');
-  box.innerHTML = '';
-  events.forEach(e => {
-    const d = document.createElement('div');
-    d.className = 'card';
-    d.innerHTML = `<strong>${e.title}</strong><br>${e.date}`;
-    box.appendChild(d);
-  });
-}
-
-function addEvent() {
-  const title = document.getElementById('title').value;
-  const date = document.getElementById('date').value;
-  if (!title || !date) return alert("Titre et date requis");
-  events.push({ title, date });
-  localStorage.setItem('events', JSON.stringify(events));
-  renderEvents();
-}
-
-function importICS(e) {
-  const file = e.target.files[0];
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const lines = ev.target.result.split(/\r?\n/);
-    let current = {};
-    lines.forEach(l => {
-      if (l.startsWith("SUMMARY:")) current.title = l.replace("SUMMARY:", "");
-      if (l.startsWith("DTSTART")) {
-        const d = l.split(":")[1].slice(0,8);
-        current.date = `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
-      }
-      if (l.startsWith("END:VEVENT") && current.title) {
-        events.push({...current});
-        current = {};
-      }
-    });
-    localStorage.setItem('events', JSON.stringify(events));
-    renderEvents();
-    alert("Agenda importé ✔");
-  };
-  reader.readAsText(file);
-}
-
-renderEvents();
-let currentView = 'day';
-
-function setView(v) {
-  currentView = v;
-  renderAgenda();
-}
-
-function renderAgenda() {
-  const box = document.getElementById('agendaView');
-  const selected =
-    document.getElementById('selectedDate').value ||
-    new Date().toISOString().slice(0,10);
-
-  box.innerHTML = '';
-
-  if (currentView === 'day') renderDay(box, selected);
-  if (currentView === 'week') renderWeek(box, selected);
-  if (currentView === 'month') renderMonth(box, selected);
-}
-
-function renderDay(box, date) {
-  const list = events.filter(e => e.date === date);
-  box.innerHTML = `<h3>📍 ${date}</h3>`;
-  list.forEach(e => {
-    box.innerHTML += `<div class="card"><b>${e.title}</b></div>`;
-  });
-  if (list.length === 0) box.innerHTML += "<p>Aucun RDV</p>";
-}
-
-function renderWeek(box, date) {
-  const d = new Date(date);
-  const monday = new Date(d.setDate(d.getDate() - d.getDay() + 1));
-  box.innerHTML = "<h3>📅 Semaine</h3>";
-
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(monday);
-    day.setDate(monday.getDate() + i);
-    const iso = day.toISOString().slice(0,10);
-    const list = events.filter(e => e.date === iso);
-
-    box.innerHTML += `<div class="card"><b>${iso}</b>`;
-    list.forEach(e => box.innerHTML += `<div>• ${e.title}</div>`);
-    box.innerHTML += "</div>";
-  }
-}
-
-function renderMonth(box, date) {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = d.getMonth();
-  const days = new Date(year, month + 1, 0).getDate();
-
-  box.innerHTML = `<h3>🗓 ${d.toLocaleString('fr',{month:'long',year:'numeric'})}</h3>`;
-
-  for (let i = 1; i <= days; i++) {
-    const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-    const count = events.filter(e => e.date === iso).length;
-    box.innerHTML += `<div class="card">${iso} — ${count} RDV</div>`;
-  }
-}
-
-renderAgenda();
-</script>
-
-</body>
-</html>
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
