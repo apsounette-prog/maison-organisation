@@ -1,86 +1,142 @@
-import React, { useState, useEffect } from "https://esm.sh/react@18";
-import ReactDOM from "https://esm.sh/react-dom@18";
-import confetti from "https://esm.sh/canvas-confetti";
+<!DOCTYPE html>
 
-const CATEGORIES = {
-  maison: "bg-violet-100 text-violet-800",
-  enfants: "bg-blue-100 text-blue-800",
-  admin: "bg-indigo-100 text-indigo-800",
-};
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maison • Organisation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-100 via-violet-100 to-blue-200 min-h-screen">
 
-const DEFAULT_TASKS = [
-  { id: 1, title: "Salle de bain", category: "maison", freq: 7, lastDone: null },
-  { id: 2, title: "Cuisine", category: "maison", freq: 3, lastDone: null },
-  { id: 3, title: "Lessive", category: "maison", freq: 2, lastDone: null },
-  { id: 4, title: "Sacs école", category: "enfants", freq: 1, lastDone: null },
-];
+<div id="app" class="max-w-md mx-auto p-4 pb-24">
 
-function daysSince(date) {
-  if (!date) return Infinity;
-  return Math.floor((Date.now() - new Date(date)) / 86400000);
-}
+  <!-- Header -->
 
-function App() {
-  const [tasks, setTasks] = useState(() => JSON.parse(localStorage.getItem("tasks")) || DEFAULT_TASKS);
-  const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem("events")) || []);
-  const [page, setPage] = useState("home");
+  <header class="mb-6">
+    <h1 class="text-2xl font-bold text-blue-900">Aujourd’hui</h1>
+    <p id="today" class="text-sm text-blue-700"></p>
+  </header>
 
-  useEffect(() => localStorage.setItem("tasks", JSON.stringify(tasks)), [tasks]);
-  useEffect(() => localStorage.setItem("events", JSON.stringify(events)), [events]);
+  <!-- Progress -->
 
-  function completeTask(id) {
-    setTasks(t => t.map(task => task.id === id ? { ...task, lastDone: new Date().toISOString() } : task));
-    confetti({ particleCount: 80, spread: 90, origin: { y: 0.7 } });
-  }
-
-  const todayTasks = tasks.filter(t => daysSince(t.lastDone) >= t.freq);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-200 to-violet-200 p-4">
-      <div className="max-w-md mx-auto space-y-4">
-        <header className="text-center">
-          <h1 className="text-2xl font-bold text-violet-800">Maison · Organisation</h1>
-          <p className="text-sm opacity-70">{new Date().toLocaleDateString()}</p>
-        </header>
-
-        {page === "home" && (
-          <div className="space-y-3">
-            <h2 className="font-semibold">À faire aujourd'hui</h2>
-            {todayTasks.length === 0 && <p className="opacity-60">Rien d'urgent 💙</p>}
-            {todayTasks.map(t => (
-              <div key={t.id} className={`p-3 rounded-xl shadow bg-white flex justify-between items-center ${CATEGORIES[t.category]}`}>
-                <span>{t.title}</span>
-                <button onClick={() => completeTask(t.id)} className="px-3 py-1 bg-violet-600 text-white rounded-full">✔</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {page === "agenda" && (
-          <div className="space-y-3">
-            <h2 className="font-semibold">Agenda</h2>
-            <button onClick={() => {
-              const title = prompt("Titre du RDV");
-              const date = prompt("Date (YYYY-MM-DD)");
-              if (title && date) setEvents(e => [...e, { id: Date.now(), title, date }]);
-            }} className="w-full p-2 bg-blue-600 text-white rounded-xl">+ Ajouter un RDV</button>
-            {events.map(ev => (
-              <div key={ev.id} className="p-3 bg-white rounded-xl shadow">
-                <div className="font-semibold">{ev.title}</div>
-                <div className="text-sm opacity-70">{ev.date}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <nav className="fixed bottom-4 left-4 right-4 bg-white rounded-full shadow flex justify-around p-2">
-          <button onClick={() => setPage("home")} className="px-4 py-2">🏠</button>
-          <button onClick={() => setPage("agenda")} className="px-4 py-2">📅</button>
-        </nav>
-      </div>
+  <div class="bg-white/80 rounded-2xl p-4 shadow mb-6">
+    <p class="text-sm text-gray-600 mb-2">Progression du jour</p>
+    <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+      <div id="progressBar" class="h-full bg-gradient-to-r from-violet-400 to-blue-500" style="width:0%"></div>
     </div>
-  );
+  </div>
+
+  <!-- Tasks -->
+
+  <section class="space-y-3" id="tasks"></section>
+
+  <!-- Agenda -->
+
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold text-blue-900 mb-3">Agenda</h2>
+    <div id="events" class="space-y-2"></div>
+    <button onclick="openEventModal()" class="mt-4 w-full py-3 rounded-xl bg-violet-600 text-white font-semibold">➕ Ajouter un rendez-vous</button>
+  </section>
+</div>
+
+<!-- Bottom Nav -->
+
+<nav class="fixed bottom-4 left-4 right-4 bg-white/90 backdrop-blur rounded-full shadow flex justify-around py-2">
+  <span class="font-semibold text-blue-700">Accueil</span>
+  <span class="text-gray-400">Tâches</span>
+  <span class="text-gray-400">Agenda</span>
+</nav>
+
+<!-- Modal -->
+
+<div id="eventModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-sm space-y-3">
+    <h3 class="font-bold text-lg">Nouveau rendez-vous</h3>
+    <input id="evTitle" placeholder="Titre" class="w-full border p-2 rounded" />
+    <input id="evDate" type="date" class="w-full border p-2 rounded" />
+    <input id="evTime" type="time" class="w-full border p-2 rounded" />
+    <div class="flex justify-between">
+      <button onclick="closeEventModal()" class="px-4 py-2 rounded bg-gray-200">Annuler</button>
+      <button onclick="addEvent()" class="px-4 py-2 rounded bg-blue-600 text-white">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Date
+document.getElementById('today').innerText = new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' })
+
+// Data
+let tasks = JSON.parse(localStorage.getItem('tasks')) || [
+  { id:1, label:'Nettoyer la cuisine', done:false },
+  { id:2, label:'Lancer une lessive', done:false },
+  { id:3, label:'Ranger le salon', done:false }
+]
+
+let events = JSON.parse(localStorage.getItem('events')) || []
+
+function save() {
+  localStorage.setItem('tasks', JSON.stringify(tasks))
+  localStorage.setItem('events', JSON.stringify(events))
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-  
+function renderTasks() {
+  const container = document.getElementById('tasks')
+  container.innerHTML = ''
+  tasks.forEach(t => {
+    const div = document.createElement('div')
+    div.className = 'bg-white/80 rounded-xl p-4 flex justify-between items-center shadow'
+    div.innerHTML = `
+      <span class="${t.done?'line-through text-gray-400':''}">${t.label}</span>
+      <input type="checkbox" ${t.done?'checked':''} />
+    `
+    div.querySelector('input').onchange = () => toggleTask(t.id)
+    container.appendChild(div)
+  })
+  updateProgress()
+}
+
+function toggleTask(id) {
+  const t = tasks.find(x=>x.id===id)
+  t.done = !t.done
+  save()
+  renderTasks()
+  if(t.done) confetti({ spread:120, particleCount:60 })
+}
+
+function updateProgress() {
+  const done = tasks.filter(t=>t.done).length
+  const pct = Math.round((done/tasks.length)*100)
+  document.getElementById('progressBar').style.width = pct+'%'
+}
+
+function renderEvents() {
+  const c = document.getElementById('events')
+  c.innerHTML = ''
+  events.forEach(e=>{
+    const d = document.createElement('div')
+    d.className='bg-white/80 rounded-xl p-3 shadow text-sm'
+    d.innerText = `${e.date} ${e.time||''} • ${e.title}`
+    c.appendChild(d)
+  })
+}
+
+function openEventModal(){ document.getElementById('eventModal').classList.remove('hidden') }
+function closeEventModal(){ document.getElementById('eventModal').classList.add('hidden') }
+
+function addEvent(){
+  events.push({
+    title: evTitle.value,
+    date: evDate.value,
+    time: evTime.value
+  })
+  save(); renderEvents(); closeEventModal()
+}
+
+renderTasks(); renderEvents();
+</script>
+
+</body>
+</html>
