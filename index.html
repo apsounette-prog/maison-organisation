@@ -90,6 +90,35 @@ input[type="file"] {
 </section>
 
 <section id="agenda" class="page" style="display:none">
+
+  <div class="card">
+    <h3>📅 Agenda</h3>
+    <div style="display:flex;gap:8px">
+      <button onclick="setView('day')">Jour</button>
+      <button onclick="setView('week')">Semaine</button>
+      <button onclick="setView('month')">Mois</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <input type="date" id="selectedDate" onchange="renderAgenda()" />
+  </div>
+
+  <div class="card">
+    <h4>Importer Google Agenda</h4>
+    <input type="file" accept=".ics" onchange="importICS(event)">
+  </div>
+
+  <div class="card">
+    <h4>➕ Ajouter un RDV</h4>
+    <input id="title" placeholder="Titre" style="width:100%;margin-bottom:8px">
+    <input id="date" type="date" style="width:100%;margin-bottom:8px">
+    <button onclick="addEvent()">Ajouter</button>
+  </div>
+
+  <div id="agendaView"></div>
+
+</section>
   <div class="card">
     <h3>📅 Importer Google Agenda</h3>
     <input type="file" accept=".ics" onchange="importICS(event)">
