@@ -1,428 +1,586 @@
-import React, { useEffect, useMemo, useState } from "react";
+  import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, RotateCcw, Check, Clock, AlertCircle, Calendar, ChevronLeft, ChevronRight, X, MapPin, FileText } from 'lucide-react';
 
-// Single-file React component (Tailwind CSS required)
-// Usage: paste into a React app (Vite/Create React App) with Tailwind configured.
-// This is a compact, production-minded prototype for a "home organization" mobile app.
-
-export default function HomeOrgApp() {
-  // --- SETTINGS ---
-  const [workHours, setWorkHours] = useState({ start: "09:00", end: "17:30" });
-  // user sets a date that is considered the start of a 'kids week' to compute alternating weeks
-  const [kidsWeekStart, setKidsWeekStart] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - (d.getDay() || 7)); // set to last Monday by default
-    return d.toISOString().slice(0, 10);
-  });
-
-  // --- SAMPLE DATA / PERSISTENCE ---
-  const [tasks, setTasks] = useState(() => {
-    try {
-      const raw = localStorage.getItem("homeorg_tasks");
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    // default sample tasks
-    return [
-      {
-        id: cryptoRandomId(),
-        title: "Passer l'aspirateur",
-        type: "chore",
-        color: "bg-indigo-400",
-        time: "10:00",
-        days: [1, 3, 5], // Mon, Wed, Fri
-        assigned: "moi",
-        durationMin: 25,
-        notes: "Salon + couloir",
-        active: true,
-      },
-      {
-        id: cryptoRandomId(),
-        title: "Gérer les factures",
-        type: "bill",
-        color: "bg-amber-400",
-        dueDate: addDaysISO(3),
-        amount: 120,
-        paid: false,
-        assigned: "moi",
-      },
-      {
-        id: cryptoRandomId(),
-        title: "Ranger chambres enfants",
-        type: "chore",
-        color: "bg-emerald-400",
-        time: "18:00",
-        days: [],
-        assigned: "enfants",
-        everyOtherWeek: true,
-        durationMin: 20,
-      },
-    ];
-  });
+const CleaningApp = () => {
+  const [tasks, setTasks] = useState([
+    { id: 1, name: 'Cuisine', room: 'Cuisine', frequency: 1, lastDone: null, urgency: 0, description: 'Nettoyer les plans de travail, évier, plaques' },
+    { id: 2, name: 'Salle de bain', room: 'Salle de bain', frequency: 2, lastDone: null, urgency: 0, description: 'Lavabo, douche, WC, miroir' },
+    { id: 3, name: 'Aspirateur salon', room: 'Salon', frequency: 3, lastDone: null, urgency: 0, description: 'Passer l aspirateur et nettoyer le sol' },
+    { id: 4, name: 'Changer draps', room: 'Chambre', frequency: 7, lastDone: null, urgency: 0, description: 'Changer draps et taies d oreiller' },
+  ]);
+  
+  const [appointments, setAppointments] = useState([
+    { id: 1, title: 'Plombier', date: new Date(2026, 0, 20, 14, 0), location: 'Salle de bain', notes: 'Réparation fuite lavabo' },
+  ]);
+  
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddAppointment, setShowAddAppointment] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [newTask, setNewTask] = useState({ name: '', room: '', frequency: 1, description: '' });
+  const [newAppointment, setNewAppointment] = useState({ title: '', date: '', time: '', location: '', notes: '' });
+  const [filter, setFilter] = useState('all');
+  const [view, setView] = useState('overview');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
-    localStorage.setItem("homeorg_tasks", JSON.stringify(tasks));
-  }, [tasks]);
-
-  // --- UI STATE ---
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [filter, setFilter] = useState({ showBills: true, showChores: true });
-  const [editing, setEditing] = useState(null);
-
-  // helpers
-  function cryptoRandomId() {
-    return Math.random().toString(36).slice(2, 9);
-  }
-
-  function addDaysISO(days) {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
-  }
-
-  // compute whether a given date is a 'kids week' based on parity from kidsWeekStart
-  function isKidsWeek(dateISO) {
-    const a = new Date(kidsWeekStart);
-    a.setHours(0, 0, 0, 0);
-    const b = new Date(dateISO);
-    b.setHours(0, 0, 0, 0);
-    const diffDays = Math.floor((b - a) / (1000 * 60 * 60 * 24));
-    if (isNaN(diffDays)) return false;
-    const weeks = Math.floor(diffDays / 7);
-    return weeks % 2 === 0; // same parity as start date means kids week
-  }
-
-  // Week view: get 7 days starting Monday containing selectedDate
-  const weekDates = useMemo(() => {
-    const d = new Date(selectedDate + "T00:00");
-    const day = d.getDay();
-    const monday = new Date(d);
-    monday.setDate(d.getDate() - ((day + 6) % 7));
-    const arr = [];
-    for (let i = 0; i < 7; i++) {
-      const dd = new Date(monday);
-      dd.setDate(monday.getDate() + i);
-      arr.push(dd.toISOString().slice(0, 10));
-    }
-    return arr;
-  }, [selectedDate]);
-
-  // tasks for a specific date
-  function tasksForDate(dateISO) {
-    const weekday = new Date(dateISO).getDay(); // 0 Sun .. 6 Sat
-    const weekdayISO = weekday === 0 ? 7 : weekday; // 1 Mon .. 7 Sun
-    return tasks.filter((t) => {
-      if (!t.active) return false;
-      if (t.type === "bill") return true; // bills show under their due date UI separately
-
-      // everyOtherWeek logic: if set, show only when date is kids week OR not depending on assigned
-      if (t.everyOtherWeek) {
-        // t.assigned may be 'enfants' meaning do when kids present
-        const kidsPresent = isKidsWeek(dateISO);
-        if (t.assigned === "enfants" && !kidsPresent) return false;
-        if (t.assigned === "moi" && kidsPresent) return false; // example: some tasks only when kids absent
-      }
-
-      if (t.days && t.days.length) {
-        return t.days.includes(weekdayISO);
-      }
-      // if no days defined but time defined, show on selected day(s) — we treat as flexible if no days
-      return true;
-    });
-  }
-
-  // CRUD helpers
-  function upsertTask(task) {
-    if (!task.id) task.id = cryptoRandomId();
-    setTasks((prev) => {
-      const idx = prev.findIndex((p) => p.id === task.id);
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = task;
-        return copy;
-      }
-      return [task, ...prev];
-    });
-    setEditing(null);
-  }
-
-  function removeTask(id) {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  }
-
-  function togglePaid(id) {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, paid: !t.paid } : t)));
-  }
-
-  // export/import
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify({ tasks, kidsWeekStart, workHours }, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "homeorg-export.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function importJSON(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        if (data.tasks) setTasks(data.tasks);
-        if (data.kidsWeekStart) setKidsWeekStart(data.kidsWeekStart);
-        if (data.workHours) setWorkHours(data.workHours);
-      } catch (err) {
-        alert("Fichier invalide");
-      }
+    const calculateUrgency = () => {
+      const now = Date.now();
+      setTasks(prevTasks => prevTasks.map(task => {
+        if (!task.lastDone) return { ...task, urgency: 100 };
+        const daysPassed = (now - task.lastDone) / (1000 * 60 * 60 * 24);
+        const urgency = Math.min(100, (daysPassed / task.frequency) * 100);
+        return { ...task, urgency };
+      }));
     };
-    reader.readAsText(f);
-  }
+    calculateUrgency();
+    const interval = setInterval(calculateUrgency, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
-  // --- RENDER ---
-  return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-xl mx-auto bg-white rounded-2xl shadow p-4">
-        <header className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-semibold">Organisation Maison</h1>
-          <div className="text-sm text-gray-600">Semaine: {weekDates[0]} → {weekDates[6]}</div>
-        </header>
+  const addTask = () => {
+    if (newTask.name && newTask.room) {
+      setTasks([...tasks, {
+        id: Date.now(),
+        ...newTask,
+        lastDone: null,
+        urgency: 100
+      }]);
+      setNewTask({ name: '', room: '', frequency: 1, description: '' });
+      setShowAddForm(false);
+    }
+  };
 
-        {/* Controls */}
-        <div className="flex gap-2 mb-4">
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="p-2 border rounded w-1/2"
-          />
-          <button
-            className="p-2 bg-indigo-600 text-white rounded flex-1"
-            onClick={() => {
-              // jump to next week
-              const d = new Date(selectedDate);
-              d.setDate(d.getDate() + 7);
-              setSelectedDate(d.toISOString().slice(0, 10));
-            }}
-          >
-            Semaine suivante
-          </button>
-        </div>
+  const addAppointment = () => {
+    if (newAppointment.title && newAppointment.date && newAppointment.time) {
+      const [year, month, day] = newAppointment.date.split('-');
+      const [hours, minutes] = newAppointment.time.split(':');
+      const appointmentDate = new Date(year, month - 1, day, hours, minutes);
+      
+      setAppointments([...appointments, {
+        id: Date.now(),
+        title: newAppointment.title,
+        date: appointmentDate,
+        location: newAppointment.location,
+        notes: newAppointment.notes
+      }]);
+      setNewAppointment({ title: '', date: '', time: '', location: '', notes: '' });
+      setShowAddAppointment(false);
+    }
+  };
 
-        {/* Week overview */}
-        <div className="grid grid-cols-7 gap-2 mb-4">
-          {weekDates.map((d) => (
-            <div key={d} className="p-2 rounded-lg border text-xs">
-              <div className="flex items-center justify-between mb-1">
-                <div className="font-medium">{formatShortDate(d)}</div>
-                <div className="text-[10px] px-1 py-0.5 rounded text-white bg-gray-400">{isKidsWeek(d) ? "Enfants" : "Sans"}</div>
+  const markAsDone = (id) => {
+    setTasks(tasks.map(task => 
+      task.id === id ? { ...task, lastDone: Date.now(), urgency: 0 } : task
+    ));
+  };
+
+  const deleteTask = (id) => {
+    setTasks(tasks.filter(task => task.id !== id));
+    setSelectedTask(null);
+  };
+
+  const deleteAppointment = (id) => {
+    setAppointments(appointments.filter(apt => apt.id !== id));
+  };
+
+  const getUrgencyColor = (urgency) => {
+    if (urgency >= 100) return 'bg-red-500';
+    if (urgency >= 80) return 'bg-orange-500';
+    if (urgency >= 50) return 'bg-yellow-500';
+    if (urgency >= 20) return 'bg-blue-500';
+    return 'bg-green-500';
+  };
+
+  const getUrgencyText = (urgency) => {
+    if (urgency >= 100) return 'Urgent !';
+    if (urgency >= 80) return 'Bientôt à faire';
+    if (urgency >= 50) return 'À faire';
+    if (urgency >= 20) return 'Peut attendre';
+    return 'Fait récemment';
+  };
+
+  const getDaysText = (task) => {
+    if (!task.lastDone) return 'Jamais fait';
+    const days = Math.floor((Date.now() - task.lastDone) / (1000 * 60 * 60 * 24));
+    if (days === 0) return "Fait aujourd hui";
+    if (days === 1) return 'Fait hier';
+    return `Fait il y a ${days} jours`;
+  };
+
+  const filteredTasks = tasks
+    .filter(task => {
+      if (filter === 'urgent') return task.urgency >= 80;
+      if (filter === 'done') return task.urgency < 20;
+      return true;
+    })
+    .sort((a, b) => b.urgency - a.urgency);
+
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    return { daysInMonth, startingDayOfWeek };
+  };
+
+  const getTasksForDate = (date) => {
+    const dayStart = new Date(date).setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date).setHours(23, 59, 59, 999);
+    
+    return tasks.filter(task => {
+      if (!task.lastDone) return false;
+      return task.lastDone >= dayStart && task.lastDone <= dayEnd;
+    });
+  };
+
+  const getTasksDueForDate = (date) => {
+    return tasks.filter(task => {
+      if (!task.lastDone) {
+        return new Date(date).setHours(0, 0, 0, 0) <= Date.now();
+      }
+      const nextDue = task.lastDone + (task.frequency * 24 * 60 * 60 * 1000);
+      const dateStart = new Date(date).setHours(0, 0, 0, 0);
+      const dateEnd = new Date(date).setHours(23, 59, 59, 999);
+      return nextDue >= dateStart && nextDue <= dateEnd;
+    });
+  };
+
+  const getAppointmentsForDate = (date) => {
+    const dayStart = new Date(date).setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date).setHours(23, 59, 59, 999);
+    
+    return appointments.filter(apt => {
+      const aptTime = apt.date.getTime();
+      return aptTime >= dayStart && aptTime <= dayEnd;
+    });
+  };
+
+  const previousMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
+  };
+
+  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
+                      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const renderCalendar = () => {
+    const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentDate);
+    const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(<div key={`empty-${i}`} className="h-28 bg-gray-50"></div>);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      const dateTime = date.getTime();
+      const isToday = dateTime === today.getTime();
+      const completedTasks = getTasksForDate(date);
+      const dueTasks = getTasksDueForDate(date);
+      const dayAppointments = getAppointmentsForDate(date);
+
+      days.push(
+        <div
+          key={day}
+          onClick={() => setSelectedDay(date)}
+          className={`h-28 border border-gray-200 p-2 cursor-pointer ${isToday ? 'bg-indigo-50 border-indigo-400' : 'bg-white'} hover:bg-gray-50 transition`}
+        >
+          <div className={`text-sm font-semibold mb-1 ${isToday ? 'text-indigo-600' : 'text-gray-700'}`}>
+            {day}
+          </div>
+          <div className="space-y-1 overflow-y-auto max-h-16">
+            {completedTasks.length > 0 && (
+              <div className="text-xs bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-1">
+                <Check size={10} />
+                {completedTasks.length} fait{completedTasks.length > 1 ? 's' : ''}
               </div>
-              <div className="space-y-1">
-                {tasksForDate(d)
-                  .filter((t) => t.type !== "bill")
-                  .slice(0, 3)
-                  .map((t) => (
-                    <div key={t.id} className={`text-[12px] p-1 rounded ${t.color} text-white`}>
-                      <div className="font-medium">{t.title}</div>
-                      <div className="text-[11px]">{t.time || (t.durationMin ? `${t.durationMin} min` : "Flexible")}</div>
-                    </div>
-                  ))}
+            )}
+            {dueTasks.length > 0 && (
+              <div className="text-xs bg-orange-100 text-orange-700 px-1 py-0.5 rounded flex items-center gap-1">
+                <AlertCircle size={10} />
+                {dueTasks.length} à faire
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Bills quick list */}
-        <section className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold">Factures & Paiements</h2>
-            <div className="text-xs text-gray-500">(toggle payé)</div>
-          </div>
-          <div className="space-y-2">
-            {tasks
-              .filter((t) => t.type === "bill")
-              .slice(0, 5)
-              .map((b) => (
-                <div key={b.id} className="flex items-center justify-between p-2 border rounded">
-                  <div>
-                    <div className="font-medium">{b.title}</div>
-                    <div className="text-xs text-gray-500">Due: {b.dueDate} — {b.amount ? `${b.amount} €` : "—"}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className={`px-3 py-1 rounded ${b.paid ? "bg-green-200" : "bg-red-200"}`} onClick={() => togglePaid(b.id)}>
-                      {b.paid ? "Payée" : "À payer"}
-                    </button>
-                    <button className="text-sm text-gray-500" onClick={() => setEditing(b)}>
-                      ✎
-                    </button>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </section>
-
-        {/* Task list + add button */}
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold">Tâches et routines</h2>
-            <div className="flex gap-2">
-              <button
-                className="px-3 py-1 border rounded text-sm"
-                onClick={() => {
-                  setEditing({
-                    id: null,
-                    title: "",
-                    type: "chore",
-                    color: "bg-indigo-400",
-                    time: "",
-                    days: [],
-                    assigned: "moi",
-                    everyOtherWeek: false,
-                    durationMin: 15,
-                    active: true,
-                  });
-                }}
-              >
-                + Ajouter
-              </button>
-              <button className="px-3 py-1 border rounded text-sm" onClick={exportJSON}>Exporter</button>
-              <label className="px-3 py-1 border rounded text-sm cursor-pointer">
-                Importer
-                <input type="file" accept="application/json" onChange={importJSON} className="hidden" />
-              </label>
-            </div>
-          </div>
-
-          <div className="space-y-2 max-h-64 overflow-auto">
-            {tasks.map((t) => (
-              <div key={t.id} className="p-2 border rounded flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-8 rounded ${t.color}`} />
-                  <div>
-                    <div className="font-medium">{t.title}</div>
-                    <div className="text-xs text-gray-500">{t.type} — {t.assigned}{t.everyOtherWeek ? " — Une semaine sur deux" : ""}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="text-xs text-gray-500" onClick={() => setEditing(t)}>✎</button>
-                  <button className="text-xs text-red-500" onClick={() => removeTask(t.id)}>🗑</button>
-                </div>
+            )}
+            {dayAppointments.map(apt => (
+              <div key={apt.id} className="text-xs bg-purple-100 text-purple-700 px-1 py-0.5 rounded truncate">
+                {formatTime(apt.date)}
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      );
+    }
 
-        {/* Editing modal (inline) */}
-        {editing && (
-          <div className="fixed inset-0 bg-black/30 flex items-end md:items-center justify-center p-4">
-            <div className="bg-white rounded-xl w-full max-w-md p-4">
-              <h3 className="font-semibold mb-2">{editing.id ? "Modifier" : "Nouvelle tâche"}</h3>
-              <div className="space-y-2">
-                <input className="w-full p-2 border rounded" placeholder="Titre" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
-                <div className="flex gap-2">
-                  <select value={editing.type} onChange={(e) => setEditing({ ...editing, type: e.target.value })} className="p-2 border rounded flex-1">
-                    <option value="chore">Ménage / Tâche</option>
-                    <option value="bill">Facture</option>
-                    <option value="other">Autre</option>
-                  </select>
-                  <input type="time" value={editing.time || ""} onChange={(e) => setEditing({ ...editing, time: e.target.value })} className="p-2 border rounded" />
+    return days;
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Mon Ménage</h1>
+          <p className="text-gray-600">Gardez votre maison propre sans stress</p>
+          
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setView('overview')}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium transition flex items-center justify-center gap-2 ${
+                view === 'overview' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+              }`}
+            >
+              <AlertCircle size={18} />
+              Aperçu
+            </button>
+            <button
+              onClick={() => setView('tasks')}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium transition flex items-center justify-center gap-2 ${
+                view === 'tasks' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+              }`}
+            >
+              <Check size={18} />
+              Tâches
+            </button>
+            <button
+              onClick={() => setView('calendar')}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium transition flex items-center justify-center gap-2 ${
+                view === 'calendar' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+              }`}
+            >
+              <Calendar size={18} />
+              Calendrier
+            </button>
+          </div>
+        </div>
+
+        {view === 'overview' ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-xl p-6 text-white">
+                <h3 className="text-lg font-semibold mb-2">Urgent</h3>
+                <p className="text-4xl font-bold">{tasks.filter(t => t.urgency >= 100).length}</p>
+                <p className="text-red-100 mt-1">Tâches à faire maintenant</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-xl p-6 text-white">
+                <h3 className="text-lg font-semibold mb-2">Bientôt</h3>
+                <p className="text-4xl font-bold">{tasks.filter(t => t.urgency >= 80 && t.urgency < 100).length}</p>
+                <p className="text-orange-100 mt-1">À faire prochainement</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-xl p-6 text-white">
+                <h3 className="text-lg font-semibold mb-2">Terminé</h3>
+                <p className="text-4xl font-bold">{tasks.filter(t => t.urgency < 20).length}</p>
+                <p className="text-green-100 mt-1">Fait récemment</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="bg-white rounded-2xl shadow-xl p-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <AlertCircle className="text-red-600" size={24} />
+                  Tâches urgentes
+                </h3>
+                <div className="space-y-3">
+                  {tasks.filter(t => t.urgency >= 80).length === 0 ? (
+                    <p className="text-gray-500 text-center py-4">Rien d urgent !</p>
+                  ) : (
+                    tasks.filter(t => t.urgency >= 80).sort((a, b) => b.urgency - a.urgency).slice(0, 5).map(task => (
+                      <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer" onClick={() => setSelectedTask(task)}>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-800">{task.name}</p>
+                          <p className="text-sm text-gray-500">{task.room}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-bold px-2 py-1 rounded ${
+                            task.urgency >= 100 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                          }`}>
+                            {Math.round(task.urgency)}%
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markAsDone(task.id);
+                            }}
+                            className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition"
+                          >
+                            <Check size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
+              </div>
 
-                <div className="flex gap-2 text-sm">
-                  <label className="flex-1">
-                    <div className="text-xs text-gray-600">Assignée à</div>
-                    <select value={editing.assigned} onChange={(e) => setEditing({ ...editing, assigned: e.target.value })} className="w-full p-2 border rounded">
-                      <option value="moi">Moi</option>
-                      <option value="enfants">Enfants</option>
-                      <option value="tous">Tous</option>
-                    </select>
-                  </label>
-                  <label className="flex-1">
-                    <div className="text-xs text-gray-600">Durée (min)</div>
-                    <input type="number" value={editing.durationMin || 0} onChange={(e) => setEditing({ ...editing, durationMin: Number(e.target.value) })} className="w-full p-2 border rounded" />
-                  </label>
+              <div className="bg-white rounded-2xl shadow-xl p-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Calendar className="text-purple-600" size={24} />
+                  Prochains rendez-vous
+                </h3>
+                <div className="space-y-3">
+                  {appointments.filter(apt => apt.date >= new Date()).sort((a, b) => a.date - b.date).slice(0, 5).length === 0 ? (
+                    <p className="text-gray-500 text-center py-4">Aucun rendez-vous prévu</p>
+                  ) : (
+                    appointments.filter(apt => apt.date >= new Date()).sort((a, b) => a.date - b.date).slice(0, 5).map(apt => (
+                      <div key={apt.id} className="p-3 bg-purple-50 rounded-lg">
+                        <p className="font-semibold text-gray-800">{apt.title}</p>
+                        <p className="text-sm text-gray-600">
+                          {apt.date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à {formatTime(apt.date)}
+                        </p>
+                        {apt.location && <p className="text-sm text-gray-500">{apt.location}</p>}
+                      </div>
+                    ))
+                  )}
                 </div>
+              </div>
+            </div>
 
-                <div>
-                  <div className="text-xs text-gray-600 mb-1">Jours (cochez pour répétition hebdo)</div>
-                  <div className="flex gap-1 text-xs">
-                    {['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map((label, i) => {
-                      const val = i + 1;
-                      const checked = (editing.days || []).includes(val);
-                      return (
-                        <button key={label} onClick={() => {
-                          const days = new Set(editing.days || []);
-                          if (days.has(val)) days.delete(val); else days.add(val);
-                          setEditing({ ...editing, days: Array.from(days).sort() });
-                        }} className={`p-1 rounded text-[12px] border ${checked ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}>{label}</button>
-                      );
-                    })}
+            <div className="bg-white rounded-2xl shadow-xl p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Statistiques par pièce</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...new Set(tasks.map(t => t.room))].map(room => {
+                  const roomTasks = tasks.filter(t => t.room === room);
+                  const avgUrgency = roomTasks.reduce((sum, t) => sum + t.urgency, 0) / roomTasks.length;
+                  return (
+                    <div key={room} className="p-4 border-2 border-gray-200 rounded-xl hover:border-indigo-300 transition">
+                      <h4 className="font-semibold text-gray-800 mb-2">{room}</h4>
+                      <p className="text-sm text-gray-600 mb-2">{roomTasks.length} tâche{roomTasks.length > 1 ? 's' : ''}</p>
+                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full ${getUrgencyColor(avgUrgency)} transition-all duration-500`}
+                          style={{ width: `${avgUrgency}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">{Math.round(avgUrgency)}% urgence moyenne</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        ) : view === 'tasks' ? (
+          <>
+            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setFilter('all')}
+                  className={`flex-1 py-2 rounded-lg font-medium transition ${
+                    filter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  Toutes ({tasks.length})
+                </button>
+                <button
+                  onClick={() => setFilter('urgent')}
+                  className={`flex-1 py-2 rounded-lg font-medium transition ${
+                    filter === 'urgent' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  Urgentes ({tasks.filter(t => t.urgency >= 80).length})
+                </button>
+                <button
+                  onClick={() => setFilter('done')}
+                  className={`flex-1 py-2 rounded-lg font-medium transition ${
+                    filter === 'done' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  Faites ({tasks.filter(t => t.urgency < 20).length})
+                </button>
+              </div>
+
+              <button
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-indigo-700 transition"
+              >
+                <Plus size={20} />
+                Ajouter une tâche
+              </button>
+
+              {showAddForm && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <input
+                    type="text"
+                    placeholder="Nom de la tâche"
+                    value={newTask.name}
+                    onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
+                    className="w-full p-3 border rounded-lg mb-3"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Pièce"
+                    value={newTask.room}
+                    onChange={(e) => setNewTask({ ...newTask, room: e.target.value })}
+                    className="w-full p-3 border rounded-lg mb-3"
+                  />
+                  <textarea
+                    placeholder="Description (optionnelle)"
+                    value={newTask.description}
+                    onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                    className="w-full p-3 border rounded-lg mb-3 h-20"
+                  />
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Fréquence (jours) : {newTask.frequency}
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="30"
+                      value={newTask.frequency}
+                      onChange={(e) => setNewTask({ ...newTask, frequency: parseInt(e.target.value) })}
+                      className="w-full"
+                    />
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={!!editing.everyOtherWeek} onChange={(e) => setEditing({ ...editing, everyOtherWeek: e.target.checked })} />
-                    Une semaine sur deux
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={!!editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} />
-                    Active
-                  </label>
-                </div>
-
-                {editing.type === 'bill' && (
                   <div className="flex gap-2">
-                    <input type="date" value={editing.dueDate || addDaysISO(0)} onChange={(e) => setEditing({ ...editing, dueDate: e.target.value })} className="p-2 border rounded flex-1" />
-                    <input type="number" placeholder="€" value={editing.amount || 0} onChange={(e) => setEditing({ ...editing, amount: Number(e.target.value) })} className="p-2 border rounded w-24" />
+                    <button
+                      onClick={addTask}
+                      className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
+                    >
+                      Ajouter
+                    </button>
+                    <button
+                      onClick={() => setShowAddForm(false)}
+                      className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                    >
+                      Annuler
+                    </button>
                   </div>
-                )}
+                </div>
+              )}
+            </div>
 
-                <div className="flex justify-end gap-2 mt-2">
-                  <button className="px-3 py-1" onClick={() => setEditing(null)}>Annuler</button>
-                  <button className="px-3 py-1 bg-indigo-600 text-white rounded" onClick={() => upsertTask(editing)}>Enregistrer</button>
+            <div className="space-y-3">
+              {filteredTasks.map(task => (
+                <div key={task.id} className="bg-white rounded-xl shadow-lg p-5 hover:shadow-xl transition">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 cursor-pointer" onClick={() => setSelectedTask(task)}>
+                      <h3 className="text-xl font-semibold text-gray-800">{task.name}</h3>
+                      <p className="text-sm text-gray-500">{task.room}</p>
+                      {task.description && (
+                        <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => markAsDone(task.id)}
+                        className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition"
+                      >
+                        <Check size={20} />
+                      </button>
+                      <button
+                        onClick={() => deleteTask(task.id)}
+                        className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <RotateCcw size={16} />
+                      <span>Tous les {task.frequency} jour{task.frequency > 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Clock size={16} />
+                      <span>{getDaysText(task)}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-700">{getUrgencyText(task.urgency)}</span>
+                      <span className="text-sm font-bold text-gray-800">{Math.round(task.urgency)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div
+                        className={`h-full ${getUrgencyColor(task.urgency)} transition-all duration-500`}
+                        style={{ width: `${task.urgency}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredTasks.length === 0 && (
+              <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+                <AlertCircle size={48} className="mx-auto text-gray-400 mb-4" />
+                <p className="text-gray-600 text-lg">Aucune tâche dans cette catégorie</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={previousMonth}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <h2 className="text-2xl font-bold text-gray-800">
+                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </h2>
+              <button
+                onClick={nextMonth}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowAddAppointment(true)}
+              className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-purple-700 transition mb-6"
+            >
+              <Plus size={20} />
+              Ajouter un rendez-vous
+            </button>
+
+            <div className="grid grid-cols-7 gap-1">
+              {dayNames.map(day => (
+                <div key={day} className="text-center font-semibold text-gray-600 py-2">
+                  {day}
+                </div>
+              ))}
+              {renderCalendar()}
+            </div>
+
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-semibold text-gray-700 mb-2">Légende :</h3>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
+                  <span>Tâches complétées</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded"></div>
+                  <span>Tâches à faire</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-purple-100 border border-purple-300 rounded"></div>
+                  <span>Rendez-vous</span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Settings panel */}
-        <div className="mt-4 border-t pt-3 text-sm text-gray-600">
-          <h3 className="font-semibold">Paramètres</h3>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <label className="text-xs">
-              Heure début travail
-              <input type="time" value={workHours.start} onChange={(e) => setWorkHours({ ...workHours, start: e.target.value })} className="w-full p-1 border rounded mt-1" />
-            </label>
-            <label className="text-xs">
-              Heure fin travail
-              <input type="time" value={workHours.end} onChange={(e) => setWorkHours({ ...workHours, end: e.target.value })} className="w-full p-1 border rounded mt-1" />
-            </label>
-          </div>
-
-          <div className="mt-2">
-            <div className="text-xs">Date de référence pour alternance enfants</div>
-            <input type="date" value={kidsWeekStart} onChange={(e) => setKidsWeekStart(e.target.value)} className="p-2 border rounded mt-1 w-full" />
-            <div className="text-xs text-gray-500 mt-1">Choisissez une date qui correspond au début d'une semaine où vous avez les enfants — l'application déduira la semaine sur deux ensuite.</div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
-}
-
-// --- Small helpers used in UI ---
-function formatShortDate(iso) {
-  const d = new Date(iso + "T00:00");
-  const dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-  return `${dayNames[d.getDay()]} ${d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}`;
-}
-
-function addDaysISO(days) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+        {selectedTask && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-6 max-w-lg w     
